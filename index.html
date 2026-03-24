@@ -4,14 +4,14 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>BVMAC — Sélecteur de Profils · Analyseur CV</title>
-
+ 
 <!-- PDF.js -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-
+ 
 <!-- Firebase SDK -->
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
-
+ 
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=Jost:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400&display=swap');
 :root{
@@ -245,16 +245,16 @@ textarea.form-input{resize:vertical;min-height:80px;line-height:1.6}
 </style>
 </head>
 <body>
-
+ 
 <!-- Loading overlay -->
 <div id="loading-overlay">
   <div class="load-logo">BVMAC</div>
   <div class="load-sub" id="load-msg">Connexion à Firebase…</div>
   <div class="load-bar"><div class="load-bar-fill"></div></div>
 </div>
-
+ 
 <div class="bg-decor"><div class="bg-grid"></div></div>
-
+ 
 <!-- ═══════════════════════════════════════════ -->
 <!-- PAGE FIREBASE SETUP (shown if not configured) -->
 <!-- ═══════════════════════════════════════════ -->
@@ -262,7 +262,7 @@ textarea.form-input{resize:vertical;min-height:80px;line-height:1.6}
   <div class="setup-card">
     <div style="font-family:'Playfair Display',serif;font-size:28px;font-weight:700;color:var(--gold);margin-bottom:8px">🔥 Configuration Firebase</div>
     <p class="setup-sub">Pour synchroniser les données entre tous les utilisateurs, configurez votre base de données Firebase. C'est gratuit et prend 5 minutes.</p>
-
+ 
     <div class="setup-step">
       <div class="step-num">1</div>
       <div class="step-body">
@@ -291,7 +291,7 @@ textarea.form-input{resize:vertical;min-height:80px;line-height:1.6}
         <div class="step-desc">Realtime Database → Règles → Mettre <code>".read": true, ".write": true</code> → Publier</div>
       </div>
     </div>
-
+ 
     <div style="margin-top:8px">
       <div class="form-group"><label class="form-label">URL de la base de données (databaseURL)</label><input class="form-input" type="text" id="setup-db-url" placeholder="https://bvmac-rh-default-rtdb.europe-west1.firebasedatabase.app"></div>
       <div class="form-group"><label class="form-label">Clé API Firebase (apiKey)</label><input class="form-input" type="text" id="setup-api-key" placeholder="AIzaSy..."></div>
@@ -301,7 +301,7 @@ textarea.form-input{resize:vertical;min-height:80px;line-height:1.6}
     </div>
   </div>
 </div>
-
+ 
 <!-- ═══════════════════════════════════════════ -->
 <!-- PAGE HOME -->
 <!-- ═══════════════════════════════════════════ -->
@@ -323,7 +323,7 @@ textarea.form-input{resize:vertical;min-height:80px;line-height:1.6}
     </div>
   </div>
 </div>
-
+ 
 <!-- MODAL LOGIN -->
 <div class="modal-overlay" id="modal-login">
   <div class="modal-box">
@@ -337,7 +337,7 @@ textarea.form-input{resize:vertical;min-height:80px;line-height:1.6}
     <div class="modal-error" id="login-error">Identifiants incorrects.</div>
   </div>
 </div>
-
+ 
 <!-- MODAL ADD USER -->
 <div class="modal-overlay" id="modal-add-user">
   <div class="modal-box">
@@ -353,7 +353,7 @@ textarea.form-input{resize:vertical;min-height:80px;line-height:1.6}
     <div class="modal-error" id="add-user-error"></div>
   </div>
 </div>
-
+ 
 <!-- MODAL JOB -->
 <div class="modal-overlay" id="modal-job">
   <div class="modal-box" style="max-width:560px">
@@ -372,7 +372,7 @@ textarea.form-input{resize:vertical;min-height:80px;line-height:1.6}
     <div class="modal-error" id="job-modal-error"></div>
   </div>
 </div>
-
+ 
 <!-- PAGE ADMIN -->
 <div class="page" id="page-admin">
   <div class="app-layout">
@@ -383,7 +383,7 @@ textarea.form-input{resize:vertical;min-height:80px;line-height:1.6}
         <div class="nav-section-label">Tableau de bord</div>
         <div class="nav-item active" onclick="adminTab('dashboard',this)"><span class="ni-icon">🏠</span> Accueil</div>
         <div class="nav-section-label">Configuration</div>
-        <div class="nav-item" onclick="adminTab('api',this)"><span class="ni-icon">🔑</span> Clés API</div>
+        <div class="nav-item" onclick="adminTab('api',this)"><span class="ni-icon">⚙️</span> Configuration</div>
         <div class="nav-item" onclick="adminTab('criteria',this)"><span class="ni-icon">📋</span> Critères</div>
         <div class="nav-section-label">Utilisateurs</div>
         <div class="nav-item" onclick="adminTab('users',this)"><span class="ni-icon">👥</span> Gestion comptes <span class="ni-badge" id="users-count-badge">0</span></div>
@@ -411,23 +411,95 @@ textarea.form-input{resize:vertical;min-height:80px;line-height:1.6}
         </div>
       </div>
       <div class="tab-panel" id="admin-api">
-        <div class="page-header"><div><div class="page-header-title">Clés API</div><div class="page-header-sub">Configurez vos moteurs IA — synchronisées Firebase</div></div></div>
-        <div class="panel"><div class="panel-title">🟡 MADJINGAYE (Google Gemini)</div>
-          <div class="form-group"><label class="form-label">Clé active</label><div class="api-display"><div class="api-val" id="api-display-val">Non configurée</div><button class="btn-icon" onclick="toggleApiVis()">👁</button></div></div>
-          <div class="form-group" style="margin-top:16px"><label class="form-label">Clé API</label><input class="form-input" type="password" id="api-input" placeholder="AIzaSy..." style="font-family:JetBrains Mono,monospace;font-size:12px"></div>
-          <button class="btn-primary" style="max-width:200px" onclick="saveApiKey()">💾 Enregistrer</button>
+        <div class="page-header"><div><div class="page-header-title">Configuration</div><div class="page-header-sub">Firebase, clés API IA et statut de la chaîne</div></div></div>
+ 
+        <!-- ── Section Firebase STATIQUE ── -->
+        <div class="panel">
+          <div class="panel-title">🔥 Base de données Firebase <span id="fb-panel-badge" style="font-size:12px;font-weight:400;font-family:'JetBrains Mono',monospace;padding:2px 10px;border-radius:10px;margin-left:4px;background:rgba(224,84,84,0.15);color:#f08080">✗ Non configurée</span></div>
+ 
+          <!-- Statut Firebase (masqué si non connecté) -->
+          <div id="fb-status-block" style="display:none;margin-bottom:20px">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
+              <div style="background:var(--navy);border:1px solid var(--border);border-radius:8px;padding:16px">
+                <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.1em;color:var(--muted);font-family:JetBrains Mono,monospace;margin-bottom:6px">Statut</div>
+                <div id="fb-status-text" style="font-size:14px;font-weight:600;color:#5de0a0">✓ Connecté</div>
+              </div>
+              <div style="background:var(--navy);border:1px solid var(--border);border-radius:8px;padding:16px">
+                <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.1em;color:var(--muted);font-family:JetBrains Mono,monospace;margin-bottom:6px">Projet</div>
+                <div id="fb-project-text" style="font-size:13px;color:var(--white);font-family:JetBrains Mono,monospace">bvmac-rh</div>
+              </div>
+            </div>
+            <div style="background:var(--navy);border:1px solid var(--border);border-radius:8px;padding:14px 16px;margin-bottom:16px">
+              <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.1em;color:var(--muted);font-family:JetBrains Mono,monospace;margin-bottom:6px">Database URL</div>
+              <div id="fb-url-text" style="font-size:12px;color:var(--gold2);font-family:JetBrains Mono,monospace;word-break:break-all"></div>
+            </div>
+            <button class="btn-sm btn-sm-red" onclick="resetFirebaseConfig()">🗑 Réinitialiser Firebase</button>
+            <div style="height:1px;background:var(--border);margin:20px 0"></div>
+          </div>
+ 
+          <!-- Formulaire de configuration (toujours visible) -->
+          <div id="fb-form-block">
+            <div id="fb-form-title" style="font-size:13px;color:var(--muted);margin-bottom:16px">Saisissez vos informations Firebase pour activer la synchronisation entre appareils.</div>
+            <div class="form-group">
+              <label class="form-label">1. Database URL</label>
+              <input class="form-input" type="text" id="fb-db-url" placeholder="https://bvmac-rh-default-rtdb.europe-west1.firebasedatabase.app">
+            </div>
+            <div class="form-group">
+              <label class="form-label">2. Clé API Firebase (apiKey)</label>
+              <input class="form-input" type="text" id="fb-api-key" placeholder="AIzaSy...">
+            </div>
+            <div class="form-group">
+              <label class="form-label">3. Project ID</label>
+              <input class="form-input" type="text" id="fb-project-id" placeholder="bvmac-rh">
+            </div>
+            <div id="fb-error" style="display:none;background:rgba(224,84,84,0.1);border:1px solid rgba(224,84,84,0.3);color:#f08080;padding:12px 16px;border-radius:8px;font-size:13px;margin-bottom:12px"></div>
+            <button class="btn-primary" style="max-width:260px" id="fb-connect-btn" onclick="connectFirebase()">🔥 Connecter Firebase</button>
+          </div>
         </div>
-        <div class="panel"><div class="panel-title">⚡ Groq</div>
-          <div class="form-group"><label class="form-label">Clé active</label><div class="api-display"><div class="api-val" id="groq-display-val">Non configurée</div></div></div>
-          <div class="form-group" style="margin-top:16px"><label class="form-label">Clé API</label><input class="form-input" type="password" id="groq-input" placeholder="gsk_..." style="font-family:JetBrains Mono,monospace;font-size:12px"></div>
-          <button class="btn-primary" style="max-width:200px" onclick="saveGroqKey()">💾 Enregistrer</button>
+ 
+        <!-- ── Section Clés API IA ── -->
+        <div class="panel">
+          <div class="panel-title">🤖 Moteurs IA <span style="font-size:12px;font-weight:400;color:var(--muted)">— Groq en priorité, MADJINGAYE en backup</span></div>
+ 
+          <!-- Groq (prioritaire) -->
+          <div style="border:1px solid var(--border);border-radius:10px;padding:20px;margin-bottom:16px;background:var(--navy)">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+              <span style="font-size:18px">⚡</span>
+              <div style="flex:1"><div style="font-weight:600;color:var(--white)">Groq <span style="font-size:11px;background:rgba(60,184,122,0.15);color:#5de0a0;padding:2px 8px;border-radius:8px;margin-left:6px">Prioritaire</span></div><div style="font-size:11px;color:var(--muted)">Ultra-rapide · Gratuit · console.groq.com/keys</div></div>
+              <span id="groq-status-dot" class="badge badge-red">✗ Non configurée</span>
+            </div>
+            <div class="form-group" style="margin-bottom:12px"><label class="form-label">Clé active</label><div class="api-display"><div class="api-val" id="groq-display-val">Non configurée</div></div></div>
+            <div class="form-group" style="margin-bottom:12px"><label class="form-label">Nouvelle clé</label><input class="form-input" type="password" id="groq-input" placeholder="gsk_..." style="font-family:JetBrains Mono,monospace;font-size:12px"></div>
+            <button class="btn-primary" style="max-width:200px" onclick="saveGroqKey()">💾 Enregistrer</button>
+          </div>
+ 
+          <!-- MADJINGAYE -->
+          <div style="border:1px solid var(--border);border-radius:10px;padding:20px;margin-bottom:16px;background:var(--navy)">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+              <span style="font-size:18px">🟡</span>
+              <div style="flex:1"><div style="font-weight:600;color:var(--white)">MADJINGAYE <span style="font-size:11px;background:rgba(201,151,28,0.15);color:var(--gold2);padding:2px 8px;border-radius:8px;margin-left:6px">Backup 1</span></div><div style="font-size:11px;color:var(--muted)">Google Gemini · aistudio.google.com/apikey</div></div>
+              <span id="gemini-status-dot" class="badge badge-red">✗ Non configurée</span>
+            </div>
+            <div class="form-group" style="margin-bottom:12px"><label class="form-label">Clé active</label><div class="api-display"><div class="api-val" id="api-display-val">Non configurée</div><button class="btn-icon" onclick="toggleApiVis()">👁</button></div></div>
+            <div class="form-group" style="margin-bottom:12px"><label class="form-label">Nouvelle clé</label><input class="form-input" type="password" id="api-input" placeholder="AIzaSy..." style="font-family:JetBrains Mono,monospace;font-size:12px"></div>
+            <button class="btn-primary" style="max-width:200px" onclick="saveApiKey()">💾 Enregistrer</button>
+          </div>
+ 
+          <!-- Mistral -->
+          <div style="border:1px solid var(--border);border-radius:10px;padding:20px;background:var(--navy)">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+              <span style="font-size:18px">🔵</span>
+              <div style="flex:1"><div style="font-weight:600;color:var(--white)">Mistral <span style="font-size:11px;background:rgba(100,160,230,0.15);color:#80b8f0;padding:2px 8px;border-radius:8px;margin-left:6px">Backup 2</span></div><div style="font-size:11px;color:var(--muted)">Excellent en français · console.mistral.ai/api-keys</div></div>
+              <span id="mistral-status-dot" class="badge badge-red">✗ Non configurée</span>
+            </div>
+            <div class="form-group" style="margin-bottom:12px"><label class="form-label">Clé active</label><div class="api-display"><div class="api-val" id="mistral-display-val">Non configurée</div></div></div>
+            <div class="form-group" style="margin-bottom:12px"><label class="form-label">Nouvelle clé</label><input class="form-input" type="password" id="mistral-input" placeholder="..." style="font-family:JetBrains Mono,monospace;font-size:12px"></div>
+            <button class="btn-primary" style="max-width:200px" onclick="saveMistralKey()">💾 Enregistrer</button>
+          </div>
         </div>
-        <div class="panel"><div class="panel-title">🔵 Mistral</div>
-          <div class="form-group"><label class="form-label">Clé active</label><div class="api-display"><div class="api-val" id="mistral-display-val">Non configurée</div></div></div>
-          <div class="form-group" style="margin-top:16px"><label class="form-label">Clé API</label><input class="form-input" type="password" id="mistral-input" placeholder="..." style="font-family:JetBrains Mono,monospace;font-size:12px"></div>
-          <button class="btn-primary" style="max-width:200px" onclick="saveMistralKey()">💾 Enregistrer</button>
-        </div>
-        <div class="panel"><div class="panel-title">🔄 Statut</div><div id="api-chain-status"></div></div>
+ 
+        <!-- ── Statut chaîne ── -->
+        <div class="panel"><div class="panel-title">🔄 Statut de la chaîne</div><div id="api-chain-status"></div></div>
       </div>
       <div class="tab-panel" id="admin-criteria">
         <div class="page-header"><div><div class="page-header-title">Critères d'évaluation</div><div class="page-header-sub">Synchronisés pour tous les utilisateurs</div></div></div>
@@ -463,7 +535,7 @@ textarea.form-input{resize:vertical;min-height:80px;line-height:1.6}
     </main>
   </div>
 </div>
-
+ 
 <!-- PAGE USER -->
 <div class="page" id="page-user">
   <div class="app-layout">
@@ -490,9 +562,9 @@ textarea.form-input{resize:vertical;min-height:80px;line-height:1.6}
     </main>
   </div>
 </div>
-
+ 
 <div class="toast-container" id="toast-container"></div>
-
+ 
 <script>
 // ══════════════════════════════════════════
 // PDF.js setup
@@ -500,13 +572,13 @@ textarea.form-input{resize:vertical;min-height:80px;line-height:1.6}
 if(typeof pdfjsLib!=='undefined'){
   pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 }
-
+ 
 // ══════════════════════════════════════════
 // FIREBASE CONFIG — stored in localStorage
 // ══════════════════════════════════════════
 var DB = null; // Firebase database reference
 var FB_CONNECTED = false;
-
+ 
 function getFirebaseConfig(){
   var raw = localStorage.getItem('bvmac_fb_config');
   return raw ? JSON.parse(raw) : null;
@@ -519,64 +591,105 @@ function resetFirebaseConfig(){
   localStorage.removeItem('bvmac_fb_config');
   location.reload();
 }
-
-async function saveFirebaseConfig(){
-  var dbUrl    = document.getElementById('setup-db-url').value.trim();
-  var apiKey   = document.getElementById('setup-api-key').value.trim();
-  var projectId= document.getElementById('setup-project-id').value.trim();
-  var errEl    = document.getElementById('setup-error');
-  errEl.style.display='none';
-
-  if(!dbUrl||!apiKey||!projectId){errEl.textContent='Remplissez tous les champs.';errEl.style.display='block';return;}
-  if(!dbUrl.startsWith('https://')){errEl.textContent='L\'URL doit commencer par https://';errEl.style.display='block';return;}
-
+ 
+async function connectFirebase(){
+  var dbUrl     = (document.getElementById('fb-db-url')     ||{}).value||'';
+  var apiKey    = (document.getElementById('fb-api-key')    ||{}).value||'';
+  var projectId = (document.getElementById('fb-project-id') ||{}).value||'';
+  dbUrl=dbUrl.trim(); apiKey=apiKey.trim(); projectId=projectId.trim();
+ 
+  var errEl = document.getElementById('fb-error');
+  var btn   = document.getElementById('fb-connect-btn');
+  if(errEl) errEl.style.display='none';
+ 
+  // Validation
+  if(!dbUrl||!apiKey||!projectId){
+    if(errEl){errEl.textContent='⚠ Remplissez les 3 champs.';errEl.style.display='block';}
+    return;
+  }
+  if(!dbUrl.startsWith('https://')){
+    if(errEl){errEl.textContent='⚠ L\'URL doit commencer par https://';errEl.style.display='block';}
+    return;
+  }
+ 
+  // Lock button
+  if(btn){btn.disabled=true;btn.innerHTML='<span class="spinner"></span> Connexion en cours…';}
+ 
   var cfg = {
-    apiKey,
-    authDomain: projectId+'.firebaseapp.com',
-    databaseURL: dbUrl,
-    projectId,
-    storageBucket: projectId+'.appspot.com',
-    messagingSenderId: '000000000000',
-    appId: '1:000000000000:web:000000000000000000000000'
+    apiKey:        apiKey,
+    authDomain:    projectId+'.firebaseapp.com',
+    databaseURL:   dbUrl,
+    projectId:     projectId,
+    storageBucket: projectId+'.firebasestorage.app',
   };
   setFirebaseConfig(cfg);
-
-  // Test connection
-  try {
+ 
+  try{
     await initFirebase(cfg);
-    showToast('🔥 Firebase connecté !','success');
-    showPage('page-home');
-  } catch(e) {
-    errEl.textContent='Erreur de connexion : '+e.message+'. Vérifiez vos paramètres.';
-    errEl.style.display='block';
+ 
+    // Update UI to show connected state
+    var badge = document.getElementById('fb-panel-badge');
+    if(badge){badge.textContent='✓ Connecté';badge.style.background='rgba(60,184,122,0.15)';badge.style.color='#5de0a0';}
+ 
+    var statusBlock  = document.getElementById('fb-status-block');
+    var formTitle    = document.getElementById('fb-form-title');
+    var urlText      = document.getElementById('fb-url-text');
+    var projectText  = document.getElementById('fb-project-text');
+    if(statusBlock) statusBlock.style.display='block';
+    if(urlText)     urlText.textContent=dbUrl;
+    if(projectText) projectText.textContent=projectId;
+    if(formTitle)   formTitle.textContent='Firebase connecté. Vous pouvez modifier la configuration ci-dessous si nécessaire.';
+ 
+    // Clear fields
+    document.getElementById('fb-db-url').value='';
+    document.getElementById('fb-api-key').value='';
+    document.getElementById('fb-project-id').value='';
+ 
+    if(btn){btn.disabled=false;btn.innerHTML='🔄 Reconnecter Firebase';}
+    renderAllApiDisplays();
+    showToast('🔥 Firebase connecté et synchronisé !','success');
+ 
+  }catch(e){
+    if(errEl){errEl.textContent='❌ Erreur : '+e.message+' — Vérifiez vos informations.';errEl.style.display='block';}
     localStorage.removeItem('bvmac_fb_config');
+    if(btn){btn.disabled=false;btn.innerHTML='🔥 Connecter Firebase';}
   }
 }
-
+ 
+// Kept for backward compatibility
+async function saveFirebaseConfig(){ return connectFirebase(); }
+ 
 async function initFirebase(cfg){
-  // Initialize Firebase (avoid duplicate app)
-  var app;
   try {
-    app = firebase.app();
+    // Supprimer l'app existante si présente
+    try { await firebase.app().delete(); } catch(e) {}
+ 
+    var app = firebase.initializeApp(cfg);
+    DB = firebase.database(app);
+ 
+    // Test rapide avec timeout 4s
+    await Promise.race([
+      DB.ref('_ping').set(Date.now()),
+      new Promise(function(_,rej){ setTimeout(function(){ rej(new Error('ping timeout')); }, 4000); })
+    ]);
+ 
+    FB_CONNECTED = true;
+    await loadAllFromFirebase();
+    setupFirebaseListeners();
+    updateFbStatusBadge(true);
+ 
   } catch(e) {
-    app = firebase.initializeApp(cfg);
+    FB_CONNECTED = false;
+    DB = null;
+    var msg = e.message || '';
+    // Erreur CORS / file:// → message explicite
+    if(msg.includes('Script error') || msg.includes('network') || msg.includes('timeout')){
+      throw new Error('Connexion impossible depuis un fichier local. Hébergez le fichier sur un serveur ou GitHub Pages.');
+    }
+    throw e;
   }
-  DB = firebase.database();
-
-  // Test write/read
-  await DB.ref('_ping').set(Date.now());
-  FB_CONNECTED = true;
-
-  // Load all data from Firebase
-  await loadAllFromFirebase();
-
-  // Setup real-time listeners
-  setupFirebaseListeners();
-
-  // Update home badge
-  updateFbStatusBadge(true);
 }
-
+ 
 // ══════════════════════════════════════════
 // STATE (in-memory, synced from Firebase)
 // ══════════════════════════════════════════
@@ -594,7 +707,7 @@ var ACCOUNTS = { admin:{password:'admin123',role:'admin',name:'Administrateur',d
 var CRITERIA_CONFIG = {selected:['education','finance','tools','experience'],custom:'',jobTitle:''};
 var JOBS = [];
 var JOB  = {active:false,title:'',description:'',fileBase64:null,fileName:''};
-
+ 
 const DEFAULT_CRITERIA = [
   {id:'education',    name:"Niveau d'études",          desc:'Bac+5, école de commerce…'},
   {id:'finance',      name:'Expérience finance',        desc:'Banque, marchés, gestion…'},
@@ -605,13 +718,19 @@ const DEFAULT_CRITERIA = [
   {id:'international',name:'Expérience internationale', desc:"Postes à l'étranger…"},
   {id:'startups',     name:'Esprit entrepreneurial',    desc:'Startups, innovation…'},
 ];
-
+ 
 // ══════════════════════════════════════════
 // FIREBASE READ / WRITE HELPERS
 // ══════════════════════════════════════════
-function fbSet(path, data){ return DB.ref(path).set(data); }
-function fbGet(path){ return DB.ref(path).once('value').then(s=>s.val()); }
-
+function fbSet(path, data){
+  if(!DB){ console.warn('Firebase non connecté — sauvegarde locale uniquement pour:', path); return Promise.resolve(); }
+  return DB.ref(path).set(data).catch(function(e){ console.warn('fbSet erreur:', path, e.message); });
+}
+function fbGet(path){
+  if(!DB) return Promise.resolve(null);
+  return DB.ref(path).once('value').then(s=>s.val()).catch(function(){ return null; });
+}
+ 
 async function loadAllFromFirebase(){
   setSyncStatus('syncing','Chargement…');
   try {
@@ -624,37 +743,74 @@ async function loadAllFromFirebase(){
       fbGet('stats/totalCv'),
       fbGet('config/critDesc'),
     ]);
-
+ 
+    // API keys — Firebase prioritaire, localStorage en fallback
     if(apiKeys){
       STATE.apiKey     = apiKeys.madjingaye||'';
       STATE.groqKey    = apiKeys.groq||'';
       STATE.mistralKey = apiKeys.mistral||'';
+      // Sync vers localStorage
+      if(STATE.apiKey)     localStorage.setItem('bvmac_key_gemini',  STATE.apiKey);
+      if(STATE.groqKey)    localStorage.setItem('bvmac_key_groq',    STATE.groqKey);
+      if(STATE.mistralKey) localStorage.setItem('bvmac_key_mistral', STATE.mistralKey);
+    } else {
+      // Fallback localStorage si Firebase n'a pas les clés
+      STATE.apiKey     = localStorage.getItem('bvmac_key_gemini')  || STATE.apiKey  || '';
+      STATE.groqKey    = localStorage.getItem('bvmac_key_groq')    || STATE.groqKey || '';
+      STATE.mistralKey = localStorage.getItem('bvmac_key_mistral') || STATE.mistralKey || '';
+      // Syncer vers Firebase si on a des clés en local
+      if(STATE.apiKey)     DB.ref('config/apiKeys/madjingaye').set(STATE.apiKey).catch(()=>{});
+      if(STATE.groqKey)    DB.ref('config/apiKeys/groq').set(STATE.groqKey).catch(()=>{});
+      if(STATE.mistralKey) DB.ref('config/apiKeys/mistral').set(STATE.mistralKey).catch(()=>{});
     }
+ 
     if(accounts){
-      // Merge with default admin
       ACCOUNTS = Object.assign({admin:{password:'admin123',role:'admin',name:'Administrateur',dept:'Direction',active:true}}, accounts);
     }
     if(criteria){
       CRITERIA_CONFIG = criteria;
       STATE.selectedCriteria = new Set(criteria.selected||['education','finance','tools','experience']);
+      localStorage.setItem('bvmac_criteria_bk', JSON.stringify(criteria));
+    } else {
+      // Fallback localStorage
+      var localCrit = localStorage.getItem('bvmac_criteria_bk');
+      if(localCrit){ var c=JSON.parse(localCrit); CRITERIA_CONFIG=c; STATE.selectedCriteria=new Set(c.selected||[]); }
     }
-    if(jobs && Array.isArray(jobs))  JOBS = jobs;
-    else if(jobs) JOBS = Object.values(jobs);
-
+ 
+    if(jobs){
+      JOBS = Array.isArray(jobs) ? jobs : Object.values(jobs);
+      localStorage.setItem('bvmac_jobs_bk', JSON.stringify(JOBS));
+    } else {
+      // Fallback localStorage
+      var localJobs = localStorage.getItem('bvmac_jobs_bk');
+      if(localJobs) JOBS = JSON.parse(localJobs);
+    }
+ 
+    // Restaurer le poste actif si enregistré
+    var savedJob = localStorage.getItem('bvmac_active_job');
+    if(savedJob){ var aj=JSON.parse(savedJob); if(aj&&aj.active) JOB=aj; }
+ 
     if(history){
       if(Array.isArray(history)) STATE.analyses = history;
       else STATE.analyses = Object.values(history).sort((a,b)=>a.timestamp-b.timestamp);
     }
     if(totalCv) STATE.totalCv = totalCv;
     if(critDesc) criteriaDescriptions = critDesc;
-
+ 
     setSyncStatus('ok','Synchronisé');
   } catch(e){
     setSyncStatus('error','Erreur sync');
     console.error('Firebase load error:', e);
+    // Fallback complet sur localStorage
+    STATE.apiKey     = localStorage.getItem('bvmac_key_gemini')  || '';
+    STATE.groqKey    = localStorage.getItem('bvmac_key_groq')    || '';
+    STATE.mistralKey = localStorage.getItem('bvmac_key_mistral') || '';
+    var lc=localStorage.getItem('bvmac_criteria_bk'); if(lc){var c2=JSON.parse(lc);CRITERIA_CONFIG=c2;STATE.selectedCriteria=new Set(c2.selected||[]);}
+    var lj=localStorage.getItem('bvmac_jobs_bk'); if(lj) JOBS=JSON.parse(lj);
+    var la=localStorage.getItem('bvmac_active_job'); if(la){var aj2=JSON.parse(la);if(aj2&&aj2.active)JOB=aj2;}
   }
 }
-
+ 
 function setupFirebaseListeners(){
   // Real-time listeners for live updates
   DB.ref('config/apiKeys').on('value', snap=>{
@@ -693,7 +849,7 @@ function setupFirebaseListeners(){
     setSyncStatus(FB_CONNECTED?'ok':'error', FB_CONNECTED?'Synchronisé':'Hors ligne');
   });
 }
-
+ 
 function setSyncStatus(status, label){
   ['admin','user'].forEach(role=>{
     var dot=document.getElementById('sync-dot-'+role), lbl=document.getElementById('sync-label-'+role);
@@ -701,7 +857,7 @@ function setSyncStatus(status, label){
     if(lbl)lbl.textContent=label;
   });
 }
-
+ 
 function updateFbStatusBadge(connected){
   var el=document.getElementById('home-fb-status'); if(!el) return;
   if(connected){
@@ -712,41 +868,43 @@ function updateFbStatusBadge(connected){
     el.innerHTML='<div class="fb-dot"></div><span>Hors ligne — tentative de reconnexion…</span>';
   }
 }
-
+ 
 // ══════════════════════════════════════════
 // APP INIT
 // ══════════════════════════════════════════
 async function initApp(){
-  var loadMsg = document.getElementById('load-msg');
   var overlay = document.getElementById('loading-overlay');
-
+ 
+  // ── Masquer l'overlay IMMÉDIATEMENT ──
+  if(overlay) overlay.style.display='none';
+ 
+  // ── Charger localStorage ──
+  STATE.apiKey     = localStorage.getItem('bvmac_key_gemini')  || '';
+  STATE.groqKey    = localStorage.getItem('bvmac_key_groq')    || '';
+  STATE.mistralKey = localStorage.getItem('bvmac_key_mistral') || '';
+  try{ var lc=localStorage.getItem('bvmac_criteria_bk'); if(lc){var c=JSON.parse(lc);CRITERIA_CONFIG=c;STATE.selectedCriteria=new Set(c.selected||[]);} }catch(e){}
+  try{ var lj=localStorage.getItem('bvmac_jobs_bk'); if(lj) JOBS=JSON.parse(lj); }catch(e){}
+  try{ var la=localStorage.getItem('bvmac_active_job'); if(la){var aj=JSON.parse(la);if(aj&&aj.active)JOB=aj;} }catch(e){}
+ 
+  // ── Afficher la page d'accueil ──
+  showPage('page-home');
+  updateFbStatusBadge(false);
+ 
+  // ── Connecter Firebase en arrière-plan ──
   var cfg = getFirebaseConfig();
-  if(!cfg){
-    overlay.style.display='none';
-    showPage('page-firebase-setup');
-    return;
-  }
-
-  try {
-    loadMsg.textContent='Connexion à Firebase…';
-    await initFirebase(cfg);
-    loadMsg.textContent='Données chargées ✓';
-    await sleep(500);
-    overlay.style.display='none';
-    showPage('page-home');
-  } catch(e){
-    loadMsg.textContent='Erreur Firebase : '+e.message;
-    await sleep(2000);
-    overlay.style.display='none';
-    // Show setup page to reconfigure
-    localStorage.removeItem('bvmac_fb_config');
-    showPage('page-firebase-setup');
-  }
+  if(!cfg) return;
+ 
+  setTimeout(function(){
+    var fbTimeout = new Promise(function(_,reject){ setTimeout(function(){ reject(new Error('Timeout')); }, 6000); });
+    Promise.race([initFirebase(cfg), fbTimeout])
+      .then(function(){ updateFbStatusBadge(true); showToast('🔥 Firebase synchronisé','success'); })
+      .catch(function(e){ console.warn('Firebase:', e.message); });
+  }, 200);
 }
-
+ 
 // Start app
 initApp();
-
+ 
 // ══════════════════════════════════════════
 // AUTH
 // ══════════════════════════════════════════
@@ -769,7 +927,13 @@ function doLogin(){
   STATE.selectedCriteria=new Set(CRITERIA_CONFIG.selected||[]);
   if(acc.role==='admin'){
     document.getElementById('admin-sidebar-role').textContent=acc.name;
-    showPage('page-admin');refreshAdminDashboard();renderAdminCriteria();renderUsersTable();renderAllApiDisplays();buildAnalyzePanel('admin');
+    showPage('page-admin');refreshAdminDashboard();renderAdminCriteria();renderUsersTable();renderAllApiDisplays();renderFirebasePanel();buildAnalyzePanel('admin');
+    // Pre-fill Firebase fields if config already saved
+    var cfg=getFirebaseConfig();
+    if(cfg){
+      var u=document.getElementById('fb-db-url'),a=document.getElementById('fb-api-key'),p=document.getElementById('fb-project-id');
+      // Don't pre-fill sensitive fields, just show status
+    }
   } else {
     document.getElementById('user-sidebar-role').textContent=acc.name;
     document.getElementById('user-job-sub').textContent='Poste : '+(CRITERIA_CONFIG.jobTitle||'Non défini');
@@ -779,7 +943,7 @@ function doLogin(){
 }
 document.getElementById('login-password').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});
 function logout(){STATE.currentRole=null;STATE.currentUser=null;STATE.results=[];STATE.uploadedFiles=[];showPage('page-home');showToast('Déconnecté.','');}
-
+ 
 // ══════════════════════════════════════════
 // NAVIGATION
 // ══════════════════════════════════════════
@@ -787,6 +951,7 @@ function showPage(id){document.querySelectorAll('.page').forEach(p=>p.classList.
 function adminTab(name,el){
   document.querySelectorAll('#page-admin .nav-item').forEach(i=>i.classList.remove('active'));if(el)el.classList.add('active');
   ['dashboard','api','criteria','users','analyze','history'].forEach(p=>{var panel=document.getElementById('admin-'+p);if(panel)panel.style.display=p===name?'block':'none';});
+  if(name==='api'){ renderFirebasePanel(); renderAllApiDisplays(); }
 }
 function userTab(name,el){
   document.querySelectorAll('#page-user .nav-item').forEach(i=>i.classList.remove('active'));if(el)el.classList.add('active');
@@ -795,7 +960,36 @@ function userTab(name,el){
 function openModal(id){document.getElementById(id).classList.add('active');}
 function closeModal(id){document.getElementById(id).classList.remove('active');}
 document.querySelectorAll('.modal-overlay').forEach(m=>m.addEventListener('click',e=>{if(e.target===m)m.classList.remove('active');}));
-
+ 
+// ══════════════════════════════════════════
+// FIREBASE PANEL (dans onglet Configuration)
+// ══════════════════════════════════════════
+function renderFirebasePanel(){
+  var cfg = getFirebaseConfig();
+  var badge       = document.getElementById('fb-panel-badge');
+  var statusBlock = document.getElementById('fb-status-block');
+  var formTitle   = document.getElementById('fb-form-title');
+  var urlText     = document.getElementById('fb-url-text');
+  var projectText = document.getElementById('fb-project-text');
+ 
+  if(!cfg){
+    if(badge){badge.textContent='✗ Non configurée';badge.style.background='rgba(224,84,84,0.15)';badge.style.color='#f08080';}
+    if(statusBlock) statusBlock.style.display='none';
+    if(formTitle)   formTitle.textContent='Saisissez vos informations Firebase pour activer la synchronisation entre appareils.';
+    return;
+  }
+  // Connected
+  var statusColor = FB_CONNECTED ? '#5de0a0' : '#f08080';
+  var statusText  = FB_CONNECTED ? '✓ Connecté' : '✗ Hors ligne';
+  if(badge){badge.textContent=statusText;badge.style.background=FB_CONNECTED?'rgba(60,184,122,0.15)':'rgba(224,84,84,0.15)';badge.style.color=statusColor;}
+  if(statusBlock) statusBlock.style.display='block';
+  if(urlText)     urlText.textContent=cfg.databaseURL||'';
+  if(projectText) projectText.textContent=cfg.projectId||'';
+  if(formTitle)   formTitle.textContent='Firebase connecté. Vous pouvez modifier la configuration ci-dessous si nécessaire.';
+  var btn=document.getElementById('fb-connect-btn');
+  if(btn) btn.innerHTML='🔄 Reconnecter Firebase';
+}
+ 
 // ══════════════════════════════════════════
 // API KEYS — saved to Firebase
 // ══════════════════════════════════════════
@@ -804,31 +998,61 @@ function renderAllApiDisplays(){
   var el1=document.getElementById('api-display-val');    if(el1)el1.textContent=mask(STATE.apiKey);
   var el2=document.getElementById('groq-display-val');   if(el2)el2.textContent=mask(STATE.groqKey);
   var el3=document.getElementById('mistral-display-val');if(el3)el3.textContent=mask(STATE.mistralKey);
+ 
+  // Status dots next to each engine label
+  [
+    {id:'groq-status-dot',    key:STATE.groqKey,    label:'Groq'},
+    {id:'gemini-status-dot',  key:STATE.apiKey,     label:'MADJINGAYE'},
+    {id:'mistral-status-dot', key:STATE.mistralKey, label:'Mistral'},
+  ].forEach(function(x){
+    var dot=document.getElementById(x.id); if(!dot)return;
+    if(x.key){ dot.textContent='✓ Configurée'; dot.className='badge badge-green'; }
+    else      { dot.textContent='✗ Non configurée'; dot.className='badge badge-red'; }
+  });
+ 
   var chain=document.getElementById('api-chain-status');
-  if(chain){var items=[{l:'MADJINGAYE',k:STATE.apiKey,i:'🟡',r:'Principal'},{l:'Groq',k:STATE.groqKey,i:'⚡',r:'Backup 1'},{l:'Mistral',k:STATE.mistralKey,i:'🔵',r:'Backup 2'}];chain.innerHTML=items.map(x=>'<div style="display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--border)"><span style="font-size:18px">'+x.i+'</span><div style="flex:1"><div style="font-weight:500;color:var(--white)">'+x.l+'</div><div style="font-size:11px;color:var(--muted)">'+x.r+'</div></div><span class="badge '+(x.k?'badge-green':'badge-red')+'">'+(x.k?'✓ Configurée':'✗ Manquante')+'</span></div>').join('');}
+  if(chain){
+    var items=[
+      {l:'Groq',       k:STATE.groqKey,    i:'⚡',r:'Prioritaire'},
+      {l:'MADJINGAYE', k:STATE.apiKey,     i:'🟡',r:'Backup 1'},
+      {l:'Mistral',    k:STATE.mistralKey, i:'🔵',r:'Backup 2'},
+    ];
+    chain.innerHTML=items.map(x=>'<div style="display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--border)"><span style="font-size:18px">'+x.i+'</span><div style="flex:1"><div style="font-weight:500;color:var(--white)">'+x.l+'</div><div style="font-size:11px;color:var(--muted)">'+x.r+'</div></div><span class="badge '+(x.k?'badge-green':'badge-red')+'">'+(x.k?'✓ Configurée':'✗ Manquante')+'</span></div>').join('');
+  }
   var s=document.getElementById('stat-api');if(s)s.textContent=[STATE.apiKey,STATE.groqKey,STATE.mistralKey].filter(Boolean).length+'/3';
 }
 function toggleApiVis(){STATE.apiVisible=!STATE.apiVisible;var el=document.getElementById('api-display-val');if(el)el.textContent=STATE.apiVisible&&STATE.apiKey?STATE.apiKey:STATE.apiKey?STATE.apiKey.substring(0,8)+'••••••••••••':'Non configurée';}
-
+ 
 async function saveApiKey(){
-  var v=document.getElementById('api-input').value.trim();if(!v)return;
+  var inp=document.getElementById('api-input'); if(!inp)return;
+  var v=inp.value.trim(); if(!v){showToast('Entrez une clé valide.','error');return;}
   STATE.apiKey=v;
-  await fbSet('config/apiKeys/madjingaye',v);
-  document.getElementById('api-input').value='';renderAllApiDisplays();showToast('🔑 Clé MADJINGAYE enregistrée & synchronisée.','success');
+  localStorage.setItem('bvmac_key_gemini', v); // fallback local
+  if(DB){ try{ await DB.ref('config/apiKeys/madjingaye').set(v); showToast('🔑 Clé MADJINGAYE enregistrée & synchronisée.','success'); }catch(e){ showToast('🔑 Clé MADJINGAYE enregistrée localement.','success'); } }
+  else   { showToast('🔑 Clé MADJINGAYE enregistrée.','success'); }
+  inp.value=''; renderAllApiDisplays();
 }
+ 
 async function saveGroqKey(){
-  var v=document.getElementById('groq-input').value.trim();if(!v)return;
+  var inp=document.getElementById('groq-input'); if(!inp)return;
+  var v=inp.value.trim(); if(!v){showToast('Entrez une clé valide.','error');return;}
   STATE.groqKey=v;
-  await fbSet('config/apiKeys/groq',v);
-  document.getElementById('groq-input').value='';renderAllApiDisplays();showToast('⚡ Clé Groq enregistrée & synchronisée.','success');
+  localStorage.setItem('bvmac_key_groq', v); // fallback local
+  if(DB){ try{ await DB.ref('config/apiKeys/groq').set(v); showToast('⚡ Clé Groq enregistrée & synchronisée.','success'); }catch(e){ showToast('⚡ Clé Groq enregistrée localement.','success'); } }
+  else   { showToast('⚡ Clé Groq enregistrée.','success'); }
+  inp.value=''; renderAllApiDisplays();
 }
+ 
 async function saveMistralKey(){
-  var v=document.getElementById('mistral-input').value.trim();if(!v)return;
+  var inp=document.getElementById('mistral-input'); if(!inp)return;
+  var v=inp.value.trim(); if(!v){showToast('Entrez une clé valide.','error');return;}
   STATE.mistralKey=v;
-  await fbSet('config/apiKeys/mistral',v);
-  document.getElementById('mistral-input').value='';renderAllApiDisplays();showToast('🔵 Clé Mistral enregistrée & synchronisée.','success');
+  localStorage.setItem('bvmac_key_mistral', v); // fallback local
+  if(DB){ try{ await DB.ref('config/apiKeys/mistral').set(v); showToast('🔵 Clé Mistral enregistrée & synchronisée.','success'); }catch(e){ showToast('🔵 Clé Mistral enregistrée localement.','success'); } }
+  else   { showToast('🔵 Clé Mistral enregistrée.','success'); }
+  inp.value=''; renderAllApiDisplays();
 }
-
+ 
 // ══════════════════════════════════════════
 // CRITERIA — saved to Firebase
 // ══════════════════════════════════════════
@@ -841,12 +1065,28 @@ function renderAdminCriteria(){
   renderJobsList();
 }
 async function saveCriteria(){
-  CRITERIA_CONFIG.selected=[...STATE.selectedCriteria];
-  CRITERIA_CONFIG.custom=document.getElementById('admin-custom-criteria').value;
-  await fbSet('config/criteria',CRITERIA_CONFIG);
-  showToast('📋 Critères enregistrés & synchronisés.','success');
+  var customEl = document.getElementById('admin-custom-criteria');
+  var customVal = customEl ? customEl.value : '';
+  CRITERIA_CONFIG.selected = [...STATE.selectedCriteria];
+  CRITERIA_CONFIG.custom   = customVal;
+ 
+  // Sauvegarde locale immédiate (filet de sécurité)
+  localStorage.setItem('bvmac_criteria_bk', JSON.stringify(CRITERIA_CONFIG));
+ 
+  var customLines = customVal.split('\n').map(s=>s.trim()).filter(Boolean);
+  try{
+    await fbSet('config/criteria', CRITERIA_CONFIG);
+    var msg = '📋 Critères enregistrés & synchronisés.';
+    if(customLines.length > 0) msg += ' ('+customLines.length+' critère(s) personnalisé(s))';
+    showToast(msg, 'success');
+  } catch(e){
+    var msg2 = '📋 Critères enregistrés localement.';
+    if(customLines.length > 0) msg2 += ' ('+customLines.length+' critère(s) personnalisé(s))';
+    showToast(msg2, 'success');
+  }
+  renderUserCriteriaDisplay();
 }
-
+ 
 // ══════════════════════════════════════════
 // USERS — saved to Firebase
 // ══════════════════════════════════════════
@@ -863,23 +1103,23 @@ async function addUser(){
   if(!name||!username||!password){errEl.textContent='Champs obligatoires manquants.';errEl.classList.add('visible');return;}
   if(ACCOUNTS[username]){errEl.textContent='Identifiant déjà utilisé.';errEl.classList.add('visible');return;}
   ACCOUNTS[username]={password,role:'user',name,dept,active:true};
-  await fbSet('accounts/'+username,ACCOUNTS[username]);
+  try{ await fbSet('accounts/'+username,ACCOUNTS[username]); }catch(e){}
   closeModal('modal-add-user');renderUsersTable();refreshAdminDashboard();
   ['nu-name','nu-username','nu-password','nu-dept'].forEach(id=>document.getElementById(id).value='');
   errEl.classList.remove('visible');showToast('👤 '+name+' créé & synchronisé.','success');
 }
 async function toggleUserStatus(u){
   ACCOUNTS[u].active=!ACCOUNTS[u].active;
-  await fbSet('accounts/'+u+'/active',ACCOUNTS[u].active);
+  try{ await fbSet('accounts/'+u+'/active',ACCOUNTS[u].active); }catch(e){}
   renderUsersTable();showToast('Statut mis à jour.','success');
 }
 async function deleteUser(u){
   if(!confirm('Supprimer "'+u+'" ?'))return;
   delete ACCOUNTS[u];
-  await DB.ref('accounts/'+u).remove();
+  try{ if(DB) await DB.ref('accounts/'+u).remove(); }catch(e){}
   renderUsersTable();refreshAdminDashboard();showToast('Utilisateur supprimé.','');
 }
-
+ 
 // ══════════════════════════════════════════
 // DASHBOARD
 // ══════════════════════════════════════════
@@ -896,7 +1136,7 @@ function renderHistory(){
   if(!STATE.analyses.length){tbody.innerHTML='<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:32px">Aucune analyse.</td></tr>';return;}
   tbody.innerHTML=[...STATE.analyses].reverse().slice(0,20).map(a=>`<tr><td><span style="font-family:JetBrains Mono,monospace;font-size:12px">${a.date}</span></td><td>${esc(a.user)}</td><td>${esc(a.job||'—')}</td><td><span class="badge badge-blue">${a.count} CV</span></td><td><span style="font-family:Playfair Display,serif;font-size:18px;color:var(--gold)">${a.maxScore}</span><span style="color:var(--muted);font-size:12px">/10</span></td></tr>`).join('');
 }
-
+ 
 // ══════════════════════════════════════════
 // BUILD ANALYZE PANEL
 // ══════════════════════════════════════════
@@ -931,7 +1171,7 @@ function removeCustomCriterion(val){customCriteriaList=customCriteriaList.filter
 function renderCustomCritGrid(){var grid=document.getElementById('custom-crit-grid');if(!grid)return;grid.innerHTML=customCriteriaList.map(c=>'<div class="crit-card active"><div class="crit-check"></div><div style="flex:1"><div class="crit-name">'+esc(c)+'</div><div class="crit-desc">Critère personnalisé</div></div><span onclick="removeCustomCriterion(\''+esc(c)+'\')" style="cursor:pointer;color:var(--muted);font-size:18px;padding:0 4px">×</span></div>').join('');}
 document.addEventListener('keydown',e=>{if(e.key==='Enter'&&document.activeElement&&document.activeElement.id==='analyze-custom-input')addCustomCriterion();});
 function renderUserCriteriaDisplay(){var grid=document.getElementById('user-crit-display');if(!grid)return;var active=[...STATE.selectedCriteria].map(id=>DEFAULT_CRITERIA.find(c=>c.id===id)).filter(Boolean);var custom=(CRITERIA_CONFIG.custom||'').split('\n').map(s=>s.trim()).filter(Boolean);grid.innerHTML=[...active.map(c=>'<div class="crit-card active" style="cursor:default"><div class="crit-check"></div><div><div class="crit-name">'+c.name+'</div><div class="crit-desc">'+c.desc+'</div></div></div>'),...custom.map(l=>'<div class="crit-card active" style="cursor:default"><div class="crit-check"></div><div><div class="crit-name">'+esc(l)+'</div></div></div>')].join('')||'<div style="color:var(--muted);font-size:13px">Aucun critère configuré.</div>';}
-
+ 
 // ══════════════════════════════════════════
 // FILES
 // ══════════════════════════════════════════
@@ -959,7 +1199,7 @@ function renderFilePills(role){
   var pills=document.getElementById(role+'-file-pills');if(!pills)return;
   pills.innerHTML=STATE.uploadedFiles.map(f=>{var ext=f.name.split('.').pop().toLowerCase();var icon=ext==='pdf'?'📄':ext==='docx'?'📝':'📃';return '<div class="file-pill">'+icon+' <span>'+esc(f.name)+'</span><span style="color:var(--muted);font-family:JetBrains Mono,monospace;font-size:10px">'+(f.size/1024).toFixed(0)+'Ko</span><span class="fp-remove" onclick="removeFile(\''+esc(f.name)+'\',\''+role+'\')">×</span></div>';}).join('');
 }
-
+ 
 // ══════════════════════════════════════════
 // PDF EXTRACTION — 5 méthodes en cascade
 // Garantit la lecture de TOUS les PDFs
@@ -984,7 +1224,7 @@ async function extractPdfText(file){
   // Last resort: return filename-based placeholder so AI can still attempt
   return '[Contenu PDF non extractible pour : '+file.name+' — PDF probablement scanné sans OCR. Taille : '+(file.size/1024).toFixed(0)+'Ko]';
 }
-
+ 
 // Méthode 1 : PDF.js (meilleure, gère tous les PDFs numériques)
 async function extractPdf_pdfjs(file){
   if(typeof pdfjsLib==='undefined') throw new Error('pdf.js indisponible');
@@ -1013,7 +1253,7 @@ async function extractPdf_pdfjs(file){
   if(text.trim().length < 50) throw new Error('pdf.js: texte insuffisant');
   return text;
 }
-
+ 
 // Méthode 2 : Extraction des streams de texte PDF (BT...ET blocks)
 async function extractPdf_textStream(file){
   var buf = await file.arrayBuffer();
@@ -1052,7 +1292,7 @@ async function extractPdf_textStream(file){
   if(result.length < 80) throw new Error('textStream: résultat insuffisant');
   return result;
 }
-
+ 
 // Méthode 3 : Lecture texte UTF-8
 async function extractPdf_utf8(file){
   var text = await new Promise((res,rej)=>{
@@ -1073,7 +1313,7 @@ async function extractPdf_utf8(file){
   if(result.length < 80) throw new Error('UTF8: résultat insuffisant');
   return result;
 }
-
+ 
 // Méthode 4 : Lecture latin-1
 async function extractPdf_latin1(file){
   var text = await new Promise((res,rej)=>{
@@ -1092,7 +1332,7 @@ async function extractPdf_latin1(file){
   if(result.length < 80) throw new Error('Latin1: résultat insuffisant');
   return result;
 }
-
+ 
 // Méthode 5 : Scan octet par octet (dernier recours)
 async function extractPdf_byteScan(file){
   var buf = await file.arrayBuffer();
@@ -1113,7 +1353,7 @@ async function extractPdf_byteScan(file){
   if(result.length < 80) throw new Error('ByteScan: résultat insuffisant');
   return result;
 }
-
+ 
 function cleanPdfText(text){
   if(!text) return '';
   return text
@@ -1124,7 +1364,7 @@ function cleanPdfText(text){
     .trim()
     .slice(0,12000);
 }
-
+ 
 function hasRealWords(text){
   // Check if text contains real words (at least 5 words of 3+ letters)
   var words = text.match(/[a-zA-ZÀ-ÿ]{3,}/g) || [];
@@ -1139,33 +1379,44 @@ async function extractDocxText(file){
     return text.replace(/\s{3,}/g,' ').trim().slice(0,8000)||'[DOCX vide]';
   }catch(e){return '[Erreur DOCX]';}
 }
-
+ 
 // ══════════════════════════════════════════
 // ANALYSIS ENGINE
 // ══════════════════════════════════════════
 function sleep(ms){return new Promise(r=>setTimeout(r,ms));}
 function logLine(logEl,msg,type){if(!logEl)return;var span=document.createElement('span');span.className='log-line log-'+(type||'info');span.textContent=msg;logEl.appendChild(span);logEl.scrollTop=logEl.scrollHeight;}
 function setProgress(role,cur,tot,label){var pct=tot>0?Math.round(cur/tot*100):0;var b=document.getElementById(role+'-progress-bar'),t=document.getElementById(role+'-progress-text'),c=document.getElementById(role+'-progress-count');if(b)b.style.width=pct+'%';if(t)t.textContent=label||'…';if(c)c.textContent=cur+' / '+tot;}
-
+ 
 async function startAnalysis(role){
   var btn=document.getElementById(role+'-analyze-btn');
   var hintBox=document.getElementById(role+'-hint-box');
   if(hintBox)hintBox.innerHTML='';
-
+ 
   if(!STATE.apiKey&&!STATE.groqKey&&!STATE.mistralKey){if(hintBox)hintBox.innerHTML='<div class="err-box">❌ Aucune clé API. Configurez-en une dans <strong>Clés API</strong>.</div>';return;}
   if(!STATE.uploadedFiles.length){showToast('Importez au moins un CV.','error');return;}
   if(!JOB.active||!JOB.title){if(hintBox)hintBox.innerHTML='<div class="warn-box">⚠ Activez un poste dans <strong>Critères → Postes à pourvoir</strong>.</div>';showToast('Sélectionnez un poste actif.','error');return;}
-
-  var criteria=Array.from(STATE.selectedCriteria).map(id=>DEFAULT_CRITERIA.find(c=>c.id===id)).filter(Boolean).map(c=>c.name);
-  if(role==='admin')customCriteriaList.forEach(l=>criteria.push(l));
-  else (CRITERIA_CONFIG.custom||'').split('\n').map(t=>t.trim()).filter(Boolean).forEach(l=>criteria.push(l));
+ 
+  // Critères prédéfinis sélectionnés
+  var criteria = Array.from(STATE.selectedCriteria)
+    .map(function(id){ return DEFAULT_CRITERIA.find(function(c){ return c.id===id; }); })
+    .filter(Boolean).map(function(c){ return c.name; });
+ 
+  // Critères personnalisés — toujours inclure ceux sauvegardés dans CRITERIA_CONFIG
+  var savedCustom = (CRITERIA_CONFIG.custom||'').split('\n').map(function(t){ return t.trim(); }).filter(Boolean);
+  savedCustom.forEach(function(l){ if(!criteria.includes(l)) criteria.push(l); });
+ 
+  // Pour l'admin : inclure aussi les critères ajoutés en session
+  if(role==='admin'){
+    customCriteriaList.forEach(function(l){ if(!criteria.includes(l)) criteria.push(l); });
+  }
+ 
   if(!criteria.length){showToast('Sélectionnez au moins un critère.','error');return;}
-
+ 
   if(btn){btn.disabled=true;btn.innerHTML='<span class="spinner"></span> Analyse en cours…';}
   var progWrap=document.getElementById(role+'-progress-wrap'),logEl=document.getElementById(role+'-log');
   if(progWrap)progWrap.style.display='block';if(logEl)logEl.innerHTML='';
   STATE.results=[];
-
+ 
   // Phase 1: Extract text
   logLine(logEl,'═══ Extraction texte ═══','info');
   setProgress(role,0,STATE.uploadedFiles.length,'Extraction…');
@@ -1191,9 +1442,13 @@ async function startAnalysis(role){
     setProgress(role,i+1,STATE.uploadedFiles.length,'Extrait : '+file.name);
   }
   if(!cvFiles.length){logLine(logEl,'❌ Aucun fichier lisible.','err');if(btn){btn.disabled=false;btn.innerHTML='🔍 Lancer l\'analyse';}return;}
-
+ 
   // Phase 2: AI analysis
-  logLine(logEl,'','info');logLine(logEl,'═══ Analyse IA — '+cvFiles.length+' CV ═══','info');
+  logLine(logEl,'','info');
+  logLine(logEl,'═══ Analyse IA — '+cvFiles.length+' CV ═══','info');
+  logLine(logEl,'📌 Poste : '+JOB.title,'ok');
+  logLine(logEl,'📋 Critères ('+criteria.length+') : '+criteria.join(' · '),'info');
+  if(JOB.description) logLine(logEl,'📄 Fiche de poste : '+(JOB.description.slice(0,80))+'…','info');
   var allResults=[];
   for(var j=0;j<cvFiles.length;j++){
     var cv=cvFiles[j];setProgress(role,j,cvFiles.length,'Analyse : '+cv.name);
@@ -1203,23 +1458,22 @@ async function startAnalysis(role){
     setProgress(role,j+1,cvFiles.length,'Analysé : '+cv.name);
     if(j<cvFiles.length-1)await sleep(1000);
   }
-
+ 
   allResults.sort((a,b)=>b.totalScore-a.totalScore);STATE.results=allResults;
   logLine(logEl,'','info');logLine(logEl,'═══ ✅ TERMINÉ — '+allResults.length+' candidat(s) ═══','ok');
   if(allResults.length>0)logLine(logEl,'🏆 N°1 : '+allResults[0].name+' — '+allResults[0].totalScore+'/10','ok');
   setProgress(role,cvFiles.length,cvFiles.length,'✅ Terminé !');
-
+ 
   // Save to Firebase
   setSyncStatus('syncing','Sauvegarde…');
   try{
     STATE.totalCv+=allResults.length;
     var entry={date:new Date().toLocaleDateString('fr-FR')+' '+new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}),timestamp:Date.now(),user:STATE.currentUser,job:JOB.title||'—',count:allResults.length,maxScore:allResults.length>0?allResults[0].totalScore:0};
-    await DB.ref('history').push(entry);
-    await fbSet('stats/totalCv',STATE.totalCv);
+    if(DB){ await DB.ref('history').push(entry); await fbSet('stats/totalCv',STATE.totalCv); logLine(logEl,'  ☁️ Historique sauvegardé sur Firebase','ok'); }
+    else { STATE.analyses.push(entry); logLine(logEl,'  💾 Historique sauvegardé localement (Firebase non connecté)','warn'); }
     setSyncStatus('ok','Synchronisé');
-    logLine(logEl,'  ☁️ Historique sauvegardé sur Firebase','ok');
   }catch(e){setSyncStatus('error','Erreur sync');logLine(logEl,'  ⚠ Erreur sauvegarde Firebase : '+e.message,'warn');}
-
+ 
   if(role==='admin')refreshAdminDashboard();
   setTimeout(()=>{
     if(role==='admin')renderResults('admin-analyze-container',criteria,role);
@@ -1228,25 +1482,105 @@ async function startAnalysis(role){
   },300);
   if(btn){btn.disabled=false;btn.innerHTML='🔍 Relancer l\'analyse';}
 }
-
-async function analyzeOneCv(cv,criteria,logEl){
-  var jobCtx='';
-  if(JOB.active&&JOB.title){jobCtx='\n\nPOSTE : '+JOB.title;if(JOB.description)jobCtx+='\nDescription : '+JOB.description.slice(0,400);}
-  var critLines=criteria.map(c=>{var obj=DEFAULT_CRITERIA.find(d=>d.name===c);var xtra=obj?(criteriaDescriptions[obj.id]||''):'';return '- '+c+(xtra?' ('+xtra+')':'');}).join('\n');
-  var critSchema=criteria.map(c=>'"'+c+'": 5').join(', ');
-  var prompt='Tu es un expert recruteur RH senior de la BVMAC.'+jobCtx+'\n\nAnalyse ce CV et produis une évaluation JSON.\n\n=== CONTENU DU CV ===\n'+cv.data.slice(0,9000)+'\n=== FIN CV ===\n\nCRITÈRES (0 à 10) :\n'+critLines+'\n\nRéponds UNIQUEMENT avec un JSON valide, sans markdown :\n{"name":"Prénom Nom","filename":"'+cv.name+'","currentPosition":"Poste","education":"Diplôme","yearsExp":"X ans",'+(JOB.active?'"jobFit":"Adéquation en 1 phrase",':'')+ '"totalScore":7.5,"criteriaScores":{'+critSchema+'},"strengths":["F1","F2","F3"],"weaknesses":["P1","P2"],"keySkills":["S1","S2","S3"],"summary":"Synthèse 3 phrases.","recommendation":"À retenir","recommendationReason":"Justification."}\n\nRÈGLES : recommendation = "À retenir" OU "À considérer" OU "Non retenu". Scores = nombres 0-10. JSON uniquement.';
-  var raw=await callAI(prompt,logEl);
-  logLine(logEl,'  Réponse : '+raw.length+' chars','info');
-  var parsed=robustParse(raw,logEl);
-  if(!parsed||!parsed.length)throw new Error('JSON invalide : '+raw.slice(0,80));
-  var r=parsed[0];
-  r.filename=r.filename||cv.name;r.strengths=Array.isArray(r.strengths)?r.strengths:[];r.weaknesses=Array.isArray(r.weaknesses)?r.weaknesses:[];r.keySkills=Array.isArray(r.keySkills)?r.keySkills:[];
-  r.totalScore=parseFloat(String(r.totalScore||0).replace(',','.'))||0;r.criteriaScores=r.criteriaScores||{};
-  Object.keys(r.criteriaScores).forEach(k=>{r.criteriaScores[k]=parseFloat(String(r.criteriaScores[k]||0).replace(',','.'))||0;});
-  if(r.totalScore===0&&Object.keys(r.criteriaScores).length>0){var vals=Object.values(r.criteriaScores);r.totalScore=parseFloat((vals.reduce((a,b)=>a+b,0)/vals.length).toFixed(1));}
+ 
+async function analyzeOneCv(cv, criteria, logEl){
+ 
+  // ── 1. Fiche de poste complète ──
+  var jobSection = '';
+  if(JOB.active && JOB.title){
+    jobSection = '\n\n╔══════════════════════════════════════╗\n'
+               + '  FICHE DE POSTE — BASE D\'ÉVALUATION\n'
+               + '╚══════════════════════════════════════╝\n'
+               + 'Intitulé : ' + JOB.title + '\n';
+    if(JOB.description && JOB.description.trim()){
+      jobSection += 'Description complète :\n' + JOB.description.trim().slice(0,800) + '\n';
+    }
+    jobSection += '\n⚠ IMPORTANT : Toute ton évaluation doit être basée sur cette fiche de poste. '
+               + 'Chaque critère doit être noté en fonction de l\'adéquation du candidat avec CE poste spécifique.\n';
+  }
+ 
+  // ── 2. Critères détaillés avec descriptions ──
+  var critLines = criteria.map(function(c){
+    var obj  = DEFAULT_CRITERIA.find(function(d){ return d.name===c; });
+    var xtra = obj ? (criteriaDescriptions[obj.id]||'') : '';
+    var line = '• ' + c;
+    if(xtra) line += ' — ' + xtra;
+    return line;
+  }).join('\n');
+ 
+  // Critères personnalisés (supplémentaires)
+  var customCriteria = (CRITERIA_CONFIG.custom||'').split('\n').map(function(s){ return s.trim(); }).filter(Boolean);
+ 
+  var critSchema = criteria.map(function(c){ return '"'+c+'": 5'; }).join(', ');
+ 
+  // ── 3. Prompt complet et robuste ──
+  var prompt =
+    'Tu es un expert recruteur RH senior de la BVMAC (Bourse des Valeurs Mobilières d\'Afrique Centrale).\n'
+  + 'Ta mission est d\'analyser ce CV et d\'évaluer le candidat UNIQUEMENT par rapport à la fiche de poste ci-dessous.\n'
+  + jobSection
+  + '\n╔══════════════════════════════════════╗\n'
+  + '  CRITÈRES D\'ÉVALUATION (notes de 0 à 10)\n'
+  + '╚══════════════════════════════════════╝\n'
+  + 'Note chaque critère de 0 à 10 en te basant STRICTEMENT sur le CV ET la fiche de poste :\n'
+  + critLines + '\n'
+  + (customCriteria.length > 0
+    ? '\nCritères supplémentaires (à évaluer également) :\n' + customCriteria.map(function(c){ return '• '+c; }).join('\n') + '\n'
+    : '')
+  + '\n╔══════════════════════════════════════╗\n'
+  + '  CV À ANALYSER\n'
+  + '╚══════════════════════════════════════╝\n'
+  + cv.data.slice(0, 9000)
+  + '\n\n╔══════════════════════════════════════╗\n'
+  + '  INSTRUCTIONS DE RÉPONSE\n'
+  + '╚══════════════════════════════════════╝\n'
+  + 'Réponds UNIQUEMENT avec un objet JSON valide (sans balises markdown, sans texte avant ou après) :\n'
+  + '{\n'
+  + '  "name": "Prénom et Nom complet du candidat",\n'
+  + '  "filename": "' + cv.name + '",\n'
+  + '  "currentPosition": "Poste ou titre actuel",\n'
+  + '  "education": "Diplôme le plus élevé et établissement",\n'
+  + '  "yearsExp": "Nombre d\'années d\'expérience",\n'
+  + (JOB.active ? '  "jobFit": "En 1-2 phrases : pourquoi ce candidat correspond ou non au poste",\n' : '')
+  + '  "totalScore": 7.5,\n'
+  + '  "criteriaScores": {' + critSchema + '},\n'
+  + '  "strengths": ["Point fort 1 lié au poste", "Point fort 2", "Point fort 3"],\n'
+  + '  "weaknesses": ["Lacune 1 par rapport au poste", "Lacune 2"],\n'
+  + '  "keySkills": ["Compétence clé 1", "Compétence clé 2", "Compétence clé 3"],\n'
+  + '  "summary": "Synthèse de 3-4 phrases sur l\'adéquation du profil avec le poste.",\n'
+  + '  "recommendation": "À retenir",\n'
+  + '  "recommendationReason": "Justification claire de la recommandation par rapport au poste."\n'
+  + '}\n\n'
+  + 'RÈGLES ABSOLUES :\n'
+  + '1. recommendation = EXACTEMENT "À retenir" OU "À considérer" OU "Non retenu"\n'
+  + '2. Tous les scores dans criteriaScores = nombres entre 0 et 10 (jamais tous à 0 sauf CV vide)\n'
+  + '3. totalScore = moyenne pondérée des criteriaScores\n'
+  + '4. Réponds UNIQUEMENT avec le JSON, rien d\'autre\n'
+  + '5. Base TOUJOURS ton évaluation sur la fiche de poste fournie';
+ 
+  var raw = await callAI(prompt, logEl);
+  logLine(logEl, '  Réponse reçue : ' + raw.length + ' caractères', 'info');
+ 
+  var parsed = robustParse(raw, logEl);
+  if(!parsed || !parsed.length) throw new Error('JSON invalide. Début : ' + raw.slice(0,100));
+ 
+  var r = parsed[0];
+  r.filename    = r.filename    || cv.name;
+  r.strengths   = Array.isArray(r.strengths)  ? r.strengths  : [];
+  r.weaknesses  = Array.isArray(r.weaknesses) ? r.weaknesses : [];
+  r.keySkills   = Array.isArray(r.keySkills)  ? r.keySkills  : [];
+  r.totalScore  = parseFloat(String(r.totalScore||0).replace(',','.')) || 0;
+  r.criteriaScores = r.criteriaScores || {};
+  Object.keys(r.criteriaScores).forEach(function(k){
+    r.criteriaScores[k] = parseFloat(String(r.criteriaScores[k]||0).replace(',','.')) || 0;
+  });
+  // Recalcul du totalScore si manquant
+  if(r.totalScore === 0 && Object.keys(r.criteriaScores).length > 0){
+    var vals = Object.values(r.criteriaScores);
+    r.totalScore = parseFloat((vals.reduce(function(a,b){ return a+b; }, 0) / vals.length).toFixed(1));
+  }
   return r;
 }
-
+ 
 async function callAI(prompt,logEl){
   // Ordre : Groq d'abord (plus fiable pour texte extrait), puis MADJINGAYE, puis Mistral
   var apis=[];
@@ -1281,7 +1615,7 @@ async function callAI(prompt,logEl){
   }
   throw new Error('Toutes APIs échouées. '+(lastErr?lastErr.message.slice(0,60):''));
 }
-
+ 
 function robustParse(raw,logEl){
   if(!raw||!raw.trim())return null;
   var text=raw.replace(/^```json\s*/im,'').replace(/^```\s*/im,'').replace(/```\s*$/im,'').trim();
@@ -1292,7 +1626,7 @@ function robustParse(raw,logEl){
   while(i<text.length){var os=text.indexOf('{',i);if(os===-1)break;var depth=0,inStr=false,esc_=false,oe=-1;for(var j=os;j<text.length;j++){var c=text[j];if(esc_){esc_=false;continue;}if(c==='\\'){esc_=true;continue;}if(c==='"'){inStr=!inStr;continue;}if(inStr)continue;if(c==='{')depth++;if(c==='}'){depth--;if(depth===0){oe=j;break;}}}if(oe===-1)break;try{var obj=JSON.parse(text.slice(os,oe+1));obj.totalScore=parseFloat(String(obj.totalScore||0).replace(',','.'))||0;if(obj.criteriaScores)Object.keys(obj.criteriaScores).forEach(k=>{obj.criteriaScores[k]=parseFloat(String(obj.criteriaScores[k]||0))||0;});obj.strengths=Array.isArray(obj.strengths)?obj.strengths:[];obj.weaknesses=Array.isArray(obj.weaknesses)?obj.weaknesses:[];obj.keySkills=Array.isArray(obj.keySkills)?obj.keySkills:[];results.push(obj);}catch(e){}i=oe+1;}
   return results.length>0?results:null;
 }
-
+ 
 // ══════════════════════════════════════════
 // RESULTS
 // ══════════════════════════════════════════
@@ -1325,7 +1659,7 @@ function buildResultCard(r,i,criteria){
     +(r.recommendationReason?'<div style="font-size:12.5px;color:var(--muted);margin-top:8px;line-height:1.6">'+esc(r.recommendationReason)+'</div>':'')
     +'</div></div></div>';
 }
-
+ 
 // ══════════════════════════════════════════
 // EXPORT
 // ══════════════════════════════════════════
@@ -1367,12 +1701,30 @@ function exportProfessionalReport(){
 }
 function downloadBlob(content,filename,type){try{var blob=new Blob([content],{type});var url=URL.createObjectURL(blob);var a=document.createElement('a');a.href=url;a.download=filename;document.body.appendChild(a);a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}catch(e){showToast('Erreur export.','error');}}
 function today(){return new Date().toISOString().slice(0,10);}
-
+ 
 // ══════════════════════════════════════════
 // JOBS — saved to Firebase
 // ══════════════════════════════════════════
-async function saveJobs(){ await fbSet('config/jobs', JOBS.length?JOBS:null); }
-function renderJobsList(){
+async function saveJobs(){
+  localStorage.setItem('bvmac_jobs_bk', JSON.stringify(JOBS));
+  try{ await fbSet('config/jobs', JOBS.length?JOBS:null); }catch(e){}
+}
+ 
+function selectJob(i){
+  var job=JOBS[i];if(!job)return;
+  if(JOB.active&&JOB.title===job.title){
+    JOB={active:false,title:'',description:'',fileBase64:null,fileName:''};
+    CRITERIA_CONFIG.jobTitle='';
+    localStorage.removeItem('bvmac_active_job');
+  } else {
+    JOB={active:true,title:job.title,description:job.description||'',fileBase64:null,fileName:''};
+    CRITERIA_CONFIG.jobTitle=job.title;
+    localStorage.setItem('bvmac_active_job', JSON.stringify({active:true,title:JOB.title,description:JOB.description,fileBase64:null,fileName:''}));
+  }
+  try{ fbSet('config/criteria/jobTitle',CRITERIA_CONFIG.jobTitle||''); }catch(e){}
+  renderJobsList();
+  showToast(JOB.active?'💼 Poste actif : '+JOB.title:'Poste désélectionné.',JOB.active?'success':'');
+}
   var el=document.getElementById('jobs-list');if(!el)return;
   if(!JOBS.length){el.innerHTML='<div style="color:var(--muted);font-size:13px;padding:12px 0">Aucun poste défini.</div>';return;}
   el.innerHTML=JOBS.map((job,i)=>{var isActive=JOB.active&&JOB.title===job.title;return '<div class="job-list-item'+(isActive?' job-active':'')+'"><div style="display:flex;align-items:center;gap:12px;flex:1;cursor:pointer" onclick="selectJob('+i+')"><div style="width:18px;height:18px;border-radius:50%;border:2px solid '+(isActive?'var(--gold)':'var(--border)')+';display:flex;align-items:center;justify-content:center;flex-shrink:0">'+(isActive?'<div style="width:8px;height:8px;border-radius:50%;background:var(--gold)"></div>':'')+'</div><div><div style="font-weight:500;color:var(--white)">'+job.title+'</div><div style="font-size:11px;color:var(--muted)">'+(job.description?job.description.slice(0,60)+'…':'Fiche de poste')+'</div></div></div><div style="display:flex;gap:8px">'+(isActive?'<span class="badge badge-green">Actif</span>':'')+'<button class="btn-sm btn-sm-red" onclick="deleteJob('+i+')">✕</button></div></div>';}).join('');
@@ -1381,7 +1733,7 @@ function selectJob(i){
   var job=JOBS[i];if(!job)return;
   if(JOB.active&&JOB.title===job.title){JOB={active:false,title:'',description:'',fileBase64:null,fileName:''};CRITERIA_CONFIG.jobTitle='';}
   else{JOB={active:true,title:job.title,description:job.description||'',fileBase64:null,fileName:''};CRITERIA_CONFIG.jobTitle=job.title;}
-  fbSet('config/criteria/jobTitle',CRITERIA_CONFIG.jobTitle||'');
+  try{ fbSet('config/criteria/jobTitle',CRITERIA_CONFIG.jobTitle||''); }catch(e){}
   renderJobsList();showToast(JOB.active?'💼 Poste actif : '+JOB.title:'Poste désélectionné.',JOB.active?'success':'');
 }
 async function deleteJob(i){
@@ -1406,7 +1758,7 @@ async function validateJob(){
   document.getElementById('admin-job-title').value='';var d=document.getElementById('job-desc-text');if(d)d.value='';
   clearJobFile();renderJobsList();closeModal('modal-job');showToast('💼 Poste ajouté & synchronisé : '+title,'success');
 }
-
+ 
 // ══════════════════════════════════════════
 // UTILS
 // ══════════════════════════════════════════
