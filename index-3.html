@@ -1,0 +1,1775 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BVMAC — Sélecteur de Profils · Analyseur CV</title>
+
+<!-- PDF.js -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+
+<!-- Firebase SDK — chargé avec gestion d'erreur -->
+<script>window.firebase=window.firebase||null;</script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js" onerror="console.warn('Firebase app script failed')"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js" onerror="console.warn('Firebase db script failed')"></script>
+
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=Jost:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400&display=swap');
+:root{
+  --navy:#0b1f3a;--navy2:#122848;--navy3:#1a3560;
+  --gold:#c9971c;--gold2:#e8b531;
+  --white:#ffffff;--muted:#8fa3be;--border:#1e3d6a;
+  --danger:#e05454;--success:#3cb87a;--text:#d0ddef;
+  --shadow:0 8px 40px rgba(0,0,0,0.4)
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Jost',sans-serif;background:var(--navy);color:var(--text);min-height:100vh;overflow-x:hidden}
+.bg-decor{position:fixed;inset:0;pointer-events:none;z-index:0;overflow:hidden}
+.bg-decor::before{content:'';position:absolute;width:600px;height:600px;border-radius:50%;background:radial-gradient(circle,rgba(201,151,28,0.08) 0%,transparent 70%);top:-200px;right:-100px}
+.bg-decor::after{content:'';position:absolute;width:400px;height:400px;border-radius:50%;background:radial-gradient(circle,rgba(26,53,96,0.6) 0%,transparent 70%);bottom:-100px;left:-100px}
+.bg-grid{position:absolute;inset:0;background-image:linear-gradient(rgba(201,151,28,0.04) 1px,transparent 1px),linear-gradient(90deg,rgba(201,151,28,0.04) 1px,transparent 1px);background-size:60px 60px}
+.page{display:none;position:relative;z-index:1;min-height:100vh}
+.page.active{display:flex;flex-direction:column}
+#page-home,#page-firebase-setup{align-items:center;justify-content:center;padding:40px 20px}
+#page-home .home-wrap{max-width:680px;width:100%;text-align:center;animation:fadeUp 0.7s ease both}
+@keyframes fadeUp{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:translateY(0)}}
+.abbr{font-family:'Playfair Display',serif;font-size:32px;font-weight:700;color:var(--gold);letter-spacing:0.08em;line-height:1}
+.full-name{font-size:11px;color:var(--muted);letter-spacing:0.12em;text-transform:uppercase;margin-top:3px}
+.home-divider{width:60px;height:2px;background:linear-gradient(90deg,transparent,var(--gold),transparent);margin:0 auto 28px}
+.home-welcome{font-family:'Playfair Display',serif;font-size:clamp(22px,4vw,34px);font-weight:600;color:var(--white);line-height:1.3;margin-bottom:10px}
+.home-welcome em{color:var(--gold);font-style:italic}
+.home-sub{font-size:14px;color:var(--muted);margin-bottom:12px}
+.home-appname{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:0.2em;text-transform:uppercase;color:var(--gold);border:1px solid rgba(201,151,28,0.3);padding:5px 16px;border-radius:20px;margin-bottom:32px;background:rgba(201,151,28,0.06)}
+/* Firebase status badge on home */
+.fb-status{display:inline-flex;align-items:center;gap:8px;padding:8px 16px;border-radius:20px;font-size:12px;font-family:'JetBrains Mono',monospace;margin-bottom:28px;border:1px solid}
+.fb-status.connected{background:rgba(60,184,122,0.1);border-color:rgba(60,184,122,0.3);color:#5de0a0}
+.fb-status.disconnected{background:rgba(224,84,84,0.1);border-color:rgba(224,84,84,0.3);color:#f08080}
+.fb-status.connecting{background:rgba(201,151,28,0.1);border-color:rgba(201,151,28,0.3);color:var(--gold2)}
+.fb-dot{width:8px;height:8px;border-radius:50%;background:currentColor}
+.fb-dot.pulse{animation:pulse 1.5s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.3}}
+.profile-cards{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:32px}
+@media(max-width:480px){.profile-cards{grid-template-columns:1fr}}
+.profile-card{background:var(--navy2);border:1px solid var(--border);border-radius:12px;padding:32px 24px;cursor:pointer;transition:all 0.25s;position:relative;overflow:hidden;text-align:left}
+.profile-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,var(--gold),var(--gold2));transform:scaleX(0);transition:transform 0.3s}
+.profile-card:hover{border-color:var(--gold);transform:translateY(-3px);box-shadow:var(--shadow)}
+.profile-card:hover::before{transform:scaleX(1)}
+.pc-icon{font-size:32px;margin-bottom:16px;display:block}
+.pc-title{font-family:'Playfair Display',serif;font-size:20px;color:var(--white);margin-bottom:8px}
+.pc-desc{font-size:12.5px;color:var(--muted);line-height:1.7}
+.pc-badge{display:inline-block;margin-top:14px;font-size:10px;font-family:'JetBrains Mono',monospace;letter-spacing:0.1em;text-transform:uppercase;padding:3px 10px;border-radius:10px;background:rgba(201,151,28,0.15);color:var(--gold)}
+.home-footer{font-size:11px;color:rgba(143,163,190,0.5);font-family:'JetBrains Mono',monospace;letter-spacing:0.1em}
+/* Firebase setup page */
+.setup-card{background:var(--navy2);border:1px solid var(--border);border-radius:16px;padding:40px;width:100%;max-width:640px;animation:fadeUp 0.5s ease both}
+.setup-title{font-family:'Playfair Display',serif;font-size:26px;color:var(--white);margin-bottom:8px}
+.setup-sub{font-size:13px;color:var(--muted);margin-bottom:32px;line-height:1.6}
+.setup-step{display:flex;gap:16px;margin-bottom:24px;padding:20px;background:var(--navy);border:1px solid var(--border);border-radius:10px}
+.step-num{width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,var(--gold),var(--gold2));color:var(--navy);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;flex-shrink:0}
+.step-body{flex:1}
+.step-title{font-weight:600;color:var(--white);margin-bottom:4px;font-size:14px}
+.step-desc{font-size:12.5px;color:var(--muted);line-height:1.7}
+.step-desc code{font-family:'JetBrains Mono',monospace;background:rgba(201,151,28,0.1);color:var(--gold2);padding:1px 5px;border-radius:3px;font-size:11px}
+.modal-overlay{position:fixed;inset:0;background:rgba(5,14,27,0.85);backdrop-filter:blur(6px);z-index:100;display:none;align-items:center;justify-content:center;padding:20px}
+.modal-overlay.active{display:flex}
+.modal-box{background:var(--navy2);border:1px solid var(--border);border-radius:16px;padding:40px;width:100%;max-width:420px;position:relative;animation:popIn 0.3s cubic-bezier(0.175,0.885,0.32,1.275) both}
+@keyframes popIn{from{opacity:0;transform:scale(0.9)}to{opacity:1;transform:scale(1)}}
+.modal-close{position:absolute;top:16px;right:16px;background:none;border:none;color:var(--muted);font-size:20px;cursor:pointer;padding:4px 8px;border-radius:6px}
+.modal-close:hover{background:rgba(255,255,255,0.05);color:var(--white)}
+.modal-icon{font-size:36px;text-align:center;margin-bottom:16px}
+.modal-title{font-family:'Playfair Display',serif;font-size:22px;color:var(--white);text-align:center;margin-bottom:6px}
+.modal-sub{font-size:12px;color:var(--muted);text-align:center;margin-bottom:28px}
+.form-group{margin-bottom:16px}
+.form-label{display:block;font-size:11px;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);margin-bottom:7px}
+.form-input{width:100%;background:var(--navy);border:1px solid var(--border);border-radius:8px;padding:11px 14px;color:var(--white);font-family:'Jost',sans-serif;font-size:14px;outline:none;transition:border-color 0.2s}
+.form-input:focus{border-color:var(--gold)}
+.form-input::placeholder{color:rgba(143,163,190,0.4)}
+textarea.form-input{resize:vertical;min-height:80px;line-height:1.6}
+.btn-primary{width:100%;padding:13px;background:linear-gradient(135deg,var(--gold),var(--gold2));color:var(--navy);border:none;border-radius:8px;font-family:'Jost',sans-serif;font-size:14px;font-weight:600;cursor:pointer;transition:all 0.2s;margin-top:8px;letter-spacing:0.03em}
+.btn-primary:hover{transform:translateY(-1px);box-shadow:0 6px 20px rgba(201,151,28,0.35)}
+.btn-primary:disabled{opacity:0.5;cursor:not-allowed;transform:none}
+.modal-error{background:rgba(224,84,84,0.1);border:1px solid rgba(224,84,84,0.3);color:#f08080;padding:10px 14px;border-radius:6px;font-size:12.5px;margin-top:12px;display:none}
+.modal-error.visible{display:block}
+.app-layout{display:grid;grid-template-columns:240px 1fr;min-height:100vh}
+@media(max-width:768px){.app-layout{grid-template-columns:1fr}.sidebar{display:none}}
+.sidebar{background:var(--navy2);border-right:1px solid var(--border);display:flex;flex-direction:column;position:sticky;top:0;height:100vh;overflow-y:auto}
+.sidebar-header{padding:24px 20px;border-bottom:1px solid var(--border)}
+.sidebar-logo-small{display:flex;align-items:center;gap:10px}
+.sls-emblem{width:36px;height:36px;border:1.5px solid var(--gold);border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:'Playfair Display',serif;font-size:13px;color:var(--gold);font-weight:700;flex-shrink:0}
+.sls-name{font-family:'Playfair Display',serif;font-size:12px;color:var(--white);font-weight:600;line-height:1.3}
+.sls-role{font-size:10px;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase;font-family:'JetBrains Mono',monospace}
+/* Sync indicator in sidebar */
+.sync-indicator{display:flex;align-items:center;gap:6px;padding:6px 12px;font-size:10px;font-family:'JetBrains Mono',monospace;color:var(--muted);border-top:1px solid var(--border)}
+.sync-dot{width:6px;height:6px;border-radius:50%;background:var(--success)}
+.sync-dot.syncing{background:var(--gold2);animation:pulse 1s infinite}
+.sync-dot.error{background:var(--danger)}
+.sidebar-nav{flex:1;padding:16px 12px}
+.nav-section-label{font-size:9.5px;letter-spacing:0.18em;text-transform:uppercase;color:rgba(143,163,190,0.4);font-family:'JetBrains Mono',monospace;padding:0 8px;margin:16px 0 8px}
+.nav-item{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:8px;cursor:pointer;font-size:13.5px;color:var(--muted);transition:all 0.15s;margin-bottom:2px;border:1px solid transparent}
+.nav-item:hover{background:rgba(255,255,255,0.04);color:var(--white)}
+.nav-item.active{background:rgba(201,151,28,0.12);color:var(--gold);border-color:rgba(201,151,28,0.2)}
+.nav-item .ni-icon{font-size:16px;width:20px;text-align:center}
+.ni-badge{margin-left:auto;background:var(--gold);color:var(--navy);font-size:9px;font-weight:700;padding:1px 6px;border-radius:8px;font-family:'JetBrains Mono',monospace}
+.sidebar-footer{padding:16px 12px;border-top:1px solid var(--border)}
+.btn-logout{display:flex;align-items:center;gap:8px;width:100%;padding:10px 12px;background:none;border:1px solid var(--border);border-radius:8px;color:var(--muted);font-family:'Jost',sans-serif;font-size:13px;cursor:pointer;transition:all 0.15s}
+.btn-logout:hover{border-color:var(--danger);color:#f08080;background:rgba(224,84,84,0.06)}
+.main-content{padding:32px 36px;overflow-y:auto}
+@media(max-width:900px){.main-content{padding:24px 20px}}
+.page-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:32px;flex-wrap:wrap;gap:16px}
+.page-header-title{font-family:'Playfair Display',serif;font-size:26px;color:var(--white);margin-bottom:4px}
+.page-header-sub{font-size:13px;color:var(--muted)}
+.panel{background:var(--navy2);border:1px solid var(--border);border-radius:12px;padding:28px;margin-bottom:24px}
+.panel-title{font-family:'Playfair Display',serif;font-size:17px;color:var(--white);margin-bottom:20px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.tab-bar{display:flex;gap:4px;background:var(--navy);border:1px solid var(--border);border-radius:10px;padding:4px;margin-bottom:24px;flex-wrap:wrap}
+.tab-btn{flex:1;min-width:120px;padding:9px 16px;border:none;border-radius:7px;background:transparent;color:var(--muted);font-family:'Jost',sans-serif;font-size:13px;cursor:pointer;transition:all 0.2s;font-weight:500}
+.tab-btn.active{background:var(--navy3);color:var(--gold);box-shadow:0 2px 8px rgba(0,0,0,0.2)}
+.stats-row{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:16px;margin-bottom:24px}
+.stat-card{background:var(--navy2);border:1px solid var(--border);border-radius:10px;padding:20px;text-align:center}
+.stat-number{font-family:'Playfair Display',serif;font-size:32px;color:var(--gold);line-height:1;margin-bottom:6px}
+.stat-label{font-size:11px;color:var(--muted);letter-spacing:0.08em;text-transform:uppercase;font-family:'JetBrains Mono',monospace}
+.data-table{width:100%;border-collapse:collapse}
+.data-table th{text-align:left;font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:var(--muted);font-family:'JetBrains Mono',monospace;padding:10px 16px;border-bottom:1px solid var(--border);font-weight:400}
+.data-table td{padding:14px 16px;border-bottom:1px solid rgba(30,61,106,0.5);font-size:13.5px;color:var(--text);vertical-align:middle}
+.data-table tr:last-child td{border-bottom:none}
+.data-table tr:hover td{background:rgba(255,255,255,0.02)}
+.badge{display:inline-block;font-size:10px;font-family:'JetBrains Mono',monospace;letter-spacing:0.06em;padding:3px 9px;border-radius:10px}
+.badge-green{background:rgba(60,184,122,0.15);color:#5de0a0}
+.badge-amber{background:rgba(201,151,28,0.15);color:var(--gold2)}
+.badge-red{background:rgba(224,84,84,0.15);color:#f08080}
+.badge-blue{background:rgba(100,160,230,0.15);color:#80b8f0}
+.btn-sm{padding:6px 14px;border-radius:6px;font-size:12px;font-family:'Jost',sans-serif;cursor:pointer;transition:all 0.15s;font-weight:500;border:1px solid transparent}
+.btn-sm-gold{background:rgba(201,151,28,0.1);border-color:rgba(201,151,28,0.3);color:var(--gold)}
+.btn-sm-red{background:rgba(224,84,84,0.1);border-color:rgba(224,84,84,0.3);color:#f08080}
+.btn-sm-blue{background:rgba(100,160,230,0.1);border-color:rgba(100,160,230,0.3);color:#80b8f0}
+.api-display{display:flex;align-items:center;gap:10px;background:var(--navy);border:1px solid var(--border);border-radius:8px;padding:12px 16px}
+.api-display .api-val{flex:1;font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--gold);word-break:break-all}
+.btn-icon{background:none;border:none;color:var(--muted);cursor:pointer;font-size:16px;padding:4px 8px;border-radius:6px;transition:all 0.15s}
+.btn-icon:hover{background:rgba(255,255,255,0.05);color:var(--white)}
+.drop-zone{border:2px dashed var(--border);border-radius:10px;padding:40px;text-align:center;cursor:pointer;transition:all 0.2s;position:relative;background:rgba(11,31,58,0.5)}
+.drop-zone input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+.drop-zone:hover,.drop-zone.drag-over{border-color:var(--gold);background:rgba(201,151,28,0.05)}
+.drop-zone .dz-icon{font-size:40px;display:block;margin-bottom:12px}
+.drop-zone .dz-title{font-family:'Playfair Display',serif;font-size:18px;color:var(--white);margin-bottom:6px}
+.drop-zone .dz-sub{font-size:12px;color:var(--muted)}
+.file-pills{display:flex;flex-wrap:wrap;gap:8px;margin-top:16px}
+.file-pill{display:flex;align-items:center;gap:8px;background:var(--navy);border:1px solid var(--border);border-radius:6px;padding:7px 12px;font-size:12.5px;color:var(--text)}
+.file-pill .fp-remove{cursor:pointer;color:var(--muted);margin-left:4px;transition:color 0.15s}
+.file-pill .fp-remove:hover{color:var(--danger)}
+.crit-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;margin-bottom:16px}
+.crit-card{border:1px solid var(--border);border-radius:8px;padding:14px 16px;background:var(--navy);cursor:pointer;transition:all 0.15s;display:flex;align-items:flex-start;gap:10px}
+.crit-card:hover{border-color:rgba(201,151,28,0.4)}
+.crit-card.active{border-color:var(--gold);background:rgba(201,151,28,0.07)}
+.crit-check{width:16px;height:16px;border-radius:4px;border:1.5px solid var(--border);flex-shrink:0;margin-top:1px;display:flex;align-items:center;justify-content:center;transition:all 0.15s}
+.crit-card.active .crit-check{background:var(--gold);border-color:var(--gold)}
+.crit-card.active .crit-check::after{content:"✓";color:var(--navy);font-size:10px;font-weight:700}
+.crit-name{font-size:13px;font-weight:500;color:var(--white)}
+.crit-desc{font-size:11px;color:var(--muted);margin-top:2px}
+#admin-crit-grid{display:flex;flex-direction:column;gap:8px}
+.progress-log{background:#030d18;border:1px solid var(--border);border-radius:8px;padding:16px 20px;font-family:'JetBrains Mono',monospace;font-size:11.5px;min-height:120px;max-height:300px;overflow-y:auto;line-height:2}
+.log-line{display:block}
+.log-ok{color:#5de0a0}.log-err{color:#f08080}.log-info{color:#80b8f0}.log-warn{color:var(--gold2)}
+.progress-bar-wrap{height:8px;background:rgba(255,255,255,0.05);border-radius:4px;overflow:hidden;margin:10px 0 4px}
+.progress-bar-fill{height:100%;border-radius:4px;background:linear-gradient(90deg,var(--gold),var(--gold2));transition:width 0.4s ease}
+.progress-label{display:flex;justify-content:space-between;font-size:11px;color:var(--muted);font-family:'JetBrains Mono',monospace}
+.result-card{background:var(--navy2);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:16px;transition:box-shadow 0.2s;animation:fadeUp 0.4s ease both}
+.result-card:hover{box-shadow:0 4px 24px rgba(0,0,0,0.3)}
+.result-header{display:flex;align-items:center;gap:16px;padding:20px 24px;cursor:pointer;border-bottom:1px solid transparent;transition:background 0.15s}
+.result-header:hover{background:rgba(255,255,255,0.02)}
+.result-card.open .result-header{border-bottom-color:var(--border)}
+.rank-num{font-family:'Playfair Display',serif;font-size:30px;color:var(--border);min-width:44px;text-align:center;line-height:1}
+.rank-num.gold{color:#f5c842}.rank-num.silver{color:#b0b8c0}.rank-num.bronze{color:#c08050}
+.rh-info{flex:1}
+.rh-name{font-family:'Playfair Display',serif;font-size:18px;color:var(--white);margin-bottom:2px}
+.rh-file{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--muted);letter-spacing:0.06em}
+.rh-score-wrap{display:flex;flex-direction:column;align-items:flex-end;gap:5px}
+.rh-score{font-family:'Playfair Display',serif;font-size:36px;color:var(--white);line-height:1}
+.rh-score span{font-size:16px;color:var(--muted);font-family:'Jost',sans-serif}
+.score-bar{width:120px;height:5px;background:var(--navy);border-radius:3px;overflow:hidden}
+.score-fill{height:100%;border-radius:3px}
+.score-fill.high{background:linear-gradient(90deg,var(--success),#6be0a8)}
+.score-fill.mid{background:linear-gradient(90deg,var(--gold),var(--gold2))}
+.score-fill.low{background:linear-gradient(90deg,#c85050,#e07070)}
+.rh-chevron{color:var(--muted);font-size:20px;transition:transform 0.2s;margin-left:8px}
+.result-card.open .rh-chevron{transform:rotate(180deg)}
+.result-body{display:none;padding:28px;background:rgba(11,31,58,0.5)}
+.result-card.open .result-body{display:block}
+.rb-grid{display:grid;grid-template-columns:1fr 1fr;gap:24px}
+@media(max-width:700px){.rb-grid{grid-template-columns:1fr}}
+.rb-section-title{font-size:10px;letter-spacing:0.15em;text-transform:uppercase;color:var(--gold);font-family:'JetBrains Mono',monospace;margin-bottom:12px}
+.crit-scores-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;margin-bottom:24px}
+.cs-item{background:var(--navy);border:1px solid var(--border);border-radius:8px;padding:14px}
+.cs-name{font-size:10px;text-transform:uppercase;letter-spacing:0.1em;color:var(--muted);margin-bottom:6px;font-family:'JetBrains Mono',monospace}
+.cs-val{font-family:'Playfair Display',serif;font-size:24px;color:var(--white)}
+.cs-val span{font-size:12px;color:var(--muted);font-family:'Jost',sans-serif}
+.cs-bar-wrap{height:3px;background:rgba(255,255,255,0.05);margin-top:8px;border-radius:2px;overflow:hidden}
+.cs-bar-fill{height:100%;border-radius:2px;background:var(--gold)}
+.tag-cloud{display:flex;flex-wrap:wrap;gap:6px}
+.tag-item{font-size:11px;padding:4px 10px;border-radius:14px;font-family:'JetBrains Mono',monospace;letter-spacing:0.04em}
+.tag-green{background:rgba(60,184,122,0.12);color:#5de0a0;border:1px solid rgba(60,184,122,0.2)}
+.tag-red{background:rgba(224,84,84,0.12);color:#f08080;border:1px solid rgba(224,84,84,0.2)}
+.tag-blue{background:rgba(100,160,230,0.12);color:#80b8f0;border:1px solid rgba(100,160,230,0.2)}
+.rb-summary{font-size:13.5px;line-height:1.8;color:var(--text);background:var(--navy);border-left:3px solid var(--gold);padding:16px 20px;border-radius:0 8px 8px 0;margin-top:8px}
+.rec-pill{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:20px;font-size:13px;font-weight:600;margin-top:12px}
+.rec-green{background:rgba(60,184,122,0.15);color:#5de0a0;border:1px solid rgba(60,184,122,0.3)}
+.rec-amber{background:rgba(201,151,28,0.15);color:var(--gold2);border:1px solid rgba(201,151,28,0.3)}
+.rec-red{background:rgba(224,84,84,0.15);color:#f08080;border:1px solid rgba(224,84,84,0.3)}
+.export-row{display:flex;gap:10px;flex-wrap:wrap}
+.btn-export{display:flex;align-items:center;gap:8px;padding:10px 18px;border-radius:8px;font-family:'Jost',sans-serif;font-size:13px;font-weight:500;cursor:pointer;transition:all 0.15s;border:1px solid var(--border);background:var(--navy2);color:var(--text)}
+.btn-export:hover{border-color:var(--gold);color:var(--gold)}
+.btn-export.primary-export{background:linear-gradient(135deg,var(--gold),var(--gold2));color:var(--navy);border-color:transparent;font-weight:600}
+.btn-export.primary-export:hover{transform:translateY(-1px);box-shadow:0 4px 14px rgba(201,151,28,0.35);color:var(--navy)}
+.spinner{display:inline-block;width:14px;height:14px;border:2px solid rgba(11,31,58,0.3);border-top-color:var(--navy);border-radius:50%;animation:spin 0.7s linear infinite;vertical-align:middle;margin-right:6px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.toast-container{position:fixed;bottom:24px;right:24px;z-index:200;display:flex;flex-direction:column;gap:8px}
+.toast{background:var(--navy2);border:1px solid var(--border);border-radius:10px;padding:12px 18px;font-size:13px;color:var(--text);animation:slideToast 0.3s ease both;display:flex;align-items:center;gap:10px;max-width:360px;box-shadow:var(--shadow)}
+@keyframes slideToast{from{opacity:0;transform:translateX(20px)}to{opacity:1;transform:translateX(0)}}
+.toast.success{border-color:rgba(60,184,122,0.4);color:#5de0a0}
+.toast.error{border-color:rgba(224,84,84,0.4);color:#f08080}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media(max-width:600px){.row2{grid-template-columns:1fr}}
+.separator{height:1px;background:var(--border);margin:20px 0}
+.info-box{background:rgba(100,160,230,0.07);border:1px solid rgba(100,160,230,0.2);border-radius:8px;padding:14px 18px;font-size:12.5px;color:#a0c8f0;line-height:1.7}
+.warn-box{background:rgba(201,151,28,0.07);border:1px solid rgba(201,151,28,0.25);border-radius:8px;padding:14px 18px;font-size:12.5px;color:var(--gold2);line-height:1.7;margin-bottom:12px}
+.err-box{background:rgba(224,84,84,0.08);border:1px solid rgba(224,84,84,0.3);border-radius:8px;padding:14px 18px;font-size:12.5px;color:#f08080;line-height:1.7;margin-bottom:12px}
+.user-avatar{width:36px;height:36px;background:linear-gradient(135deg,var(--navy3),var(--gold));border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;color:var(--white);flex-shrink:0}
+.restricted-notice{background:rgba(201,151,28,0.07);border:1px solid rgba(201,151,28,0.2);border-radius:8px;padding:14px 18px;font-size:12.5px;color:var(--gold2);margin-bottom:24px;display:flex;align-items:center;gap:10px}
+.tab-panel{display:none}.tab-panel.active{display:block}
+.job-list-item{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border:1px solid var(--border);border-radius:8px;margin-bottom:8px;background:var(--navy);transition:all 0.15s;gap:12px}
+.job-list-item:hover{border-color:rgba(201,151,28,0.4)}
+.job-list-item.job-active{border-color:var(--gold);background:rgba(201,151,28,0.07)}
+/* Loading overlay */
+#loading-overlay{position:fixed;inset:0;background:var(--navy);z-index:999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px}
+#loading-overlay .load-logo{font-family:'Playfair Display',serif;font-size:36px;font-weight:700;color:var(--gold);letter-spacing:0.1em}
+#loading-overlay .load-sub{font-size:13px;color:var(--muted);font-family:'JetBrains Mono',monospace}
+#loading-overlay .load-bar{width:200px;height:3px;background:rgba(255,255,255,0.05);border-radius:2px;overflow:hidden;margin-top:8px}
+#loading-overlay .load-bar-fill{height:100%;background:linear-gradient(90deg,var(--gold),var(--gold2));border-radius:2px;animation:loadAnim 2s ease infinite}
+@keyframes loadAnim{0%{width:0%;margin-left:0}50%{width:60%;margin-left:20%}100%{width:0%;margin-left:100%}}
+</style>
+</head>
+<body>
+
+<!-- Loading overlay - hidden by default, shown only briefly -->
+<div id="loading-overlay" style="display:none">
+  <div class="load-logo">BVMAC</div>
+  <div class="load-sub" id="load-msg">Chargement…</div>
+  <div class="load-bar"><div class="load-bar-fill"></div></div>
+</div>
+
+<div class="bg-decor"><div class="bg-grid"></div></div>
+
+<!-- ═══════════════════════════════════════════ -->
+<!-- PAGE FIREBASE SETUP (shown if not configured) -->
+<!-- ═══════════════════════════════════════════ -->
+<div class="page" id="page-firebase-setup" style="display:none!important">
+  <div class="setup-card">
+    <div style="font-family:'Playfair Display',serif;font-size:28px;font-weight:700;color:var(--gold);margin-bottom:8px">🔥 Configuration Firebase</div>
+    <p class="setup-sub">Pour synchroniser les données entre tous les utilisateurs, configurez votre base de données Firebase. C'est gratuit et prend 5 minutes.</p>
+
+    <div class="setup-step">
+      <div class="step-num">1</div>
+      <div class="step-body">
+        <div class="step-title">Créer un projet Firebase</div>
+        <div class="step-desc">Allez sur <code>console.firebase.google.com</code> → Créer un projet → nommez-le <code>bvmac-rh</code></div>
+      </div>
+    </div>
+    <div class="setup-step">
+      <div class="step-num">2</div>
+      <div class="step-body">
+        <div class="step-title">Activer Realtime Database</div>
+        <div class="step-desc">Menu gauche → <code>Realtime Database</code> → Créer une base → Mode test → Activer</div>
+      </div>
+    </div>
+    <div class="setup-step">
+      <div class="step-num">3</div>
+      <div class="step-body">
+        <div class="step-title">Récupérer la configuration</div>
+        <div class="step-desc">⚙️ Paramètres du projet → Vos applications → icône <code>&lt;/&gt;</code> → Enregistrer → Copier <code>firebaseConfig</code></div>
+      </div>
+    </div>
+    <div class="setup-step">
+      <div class="step-num">4</div>
+      <div class="step-body">
+        <div class="step-title">Configurer les règles (temporaire)</div>
+        <div class="step-desc">Realtime Database → Règles → Mettre <code>".read": true, ".write": true</code> → Publier</div>
+      </div>
+    </div>
+
+    <div style="margin-top:8px">
+      <div class="form-group"><label class="form-label">URL de la base de données (databaseURL)</label><input class="form-input" type="text" id="setup-db-url" placeholder="https://bvmac-rh-default-rtdb.europe-west1.firebasedatabase.app"></div>
+      <div class="form-group"><label class="form-label">Clé API Firebase (apiKey)</label><input class="form-input" type="text" id="setup-api-key" placeholder="AIzaSy..."></div>
+      <div class="form-group"><label class="form-label">Project ID</label><input class="form-input" type="text" id="setup-project-id" placeholder="bvmac-rh"></div>
+      <div id="setup-error" class="err-box" style="display:none"></div>
+      <button class="btn-primary" onclick="saveFirebaseConfig()">🔥 Connecter Firebase</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════ -->
+<!-- PAGE HOME -->
+<!-- ═══════════════════════════════════════════ -->
+<div class="page active" id="page-home">
+  <div style="flex:1;display:flex;align-items:center;justify-content:center;padding:40px 20px">
+    <div class="home-wrap">
+      <div style="margin-bottom:32px"><div class="abbr">BVMAC</div><div class="full-name">Direction de Développement</div></div>
+      <div class="home-divider"></div>
+      <h1 class="home-welcome">Bienvenue dans l&apos;<em>Outil de<br>recrutement</em></h1>
+      <p class="home-sub">développé par la DD</p>
+      <div class="home-appname">⚙ Sélecteur de Profils — Analyseur CV v5.0</div>
+      <div id="home-fb-status" class="fb-status connecting"><div class="fb-dot pulse"></div><span>Connexion Firebase…</span></div>
+      <div class="profile-cards">
+        <div class="profile-card" onclick="openLogin('admin')"><span class="pc-icon">🔐</span><div class="pc-title">Administrateur</div><p class="pc-desc">Gestion des clés API, configuration des critères, gestion des utilisateurs et accès complet aux analyses.</p><span class="pc-badge">Accès complet</span></div>
+        <div class="profile-card" onclick="openLogin('user')"><span class="pc-icon">👤</span><div class="pc-title">Utilisateur</div><p class="pc-desc">Analyse et classement des CV selon les critères définis. Consultation et export des résultats.</p><span class="pc-badge">Accès restreint</span></div>
+      </div>
+      <p class="home-footer">BVMAC · DIRECTION DU DÉVELOPPEMENT · v5.0 — Firebase Sync</p>
+      <div style="margin-top:16px"><button onclick="resetFirebaseConfig()" style="background:none;border:none;color:rgba(143,163,190,0.4);font-size:11px;cursor:pointer;font-family:JetBrains Mono,monospace">⚙ Reconfigurer Firebase</button></div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL LOGIN -->
+<div class="modal-overlay" id="modal-login">
+  <div class="modal-box">
+    <button class="modal-close" onclick="closeModal('modal-login')">✕</button>
+    <div class="modal-icon" id="modal-icon">🔐</div>
+    <h2 class="modal-title" id="modal-title">Connexion</h2>
+    <p class="modal-sub" id="modal-sub">Entrez vos identifiants</p>
+    <div class="form-group"><label class="form-label">Identifiant</label><input class="form-input" type="text" id="login-username" placeholder="ex: admin" autocomplete="off"></div>
+    <div class="form-group"><label class="form-label">Mot de passe</label><input class="form-input" type="password" id="login-password" placeholder="••••••••"></div>
+    <button class="btn-primary" onclick="doLogin()">Se connecter</button>
+    <div class="modal-error" id="login-error">Identifiants incorrects.</div>
+  </div>
+</div>
+
+<!-- MODAL ADD USER -->
+<div class="modal-overlay" id="modal-add-user">
+  <div class="modal-box">
+    <button class="modal-close" onclick="closeModal('modal-add-user')">✕</button>
+    <div class="modal-icon">➕</div><h2 class="modal-title">Nouvel utilisateur</h2><p class="modal-sub">Créer un compte avec accès restreint</p>
+    <div class="form-group"><label class="form-label">Prénom et Nom</label><input class="form-input" type="text" id="nu-name" placeholder="Marie Dupont"></div>
+    <div class="row2">
+      <div class="form-group"><label class="form-label">Identifiant</label><input class="form-input" type="text" id="nu-username" placeholder="mdupont"></div>
+      <div class="form-group"><label class="form-label">Mot de passe</label><input class="form-input" type="password" id="nu-password" placeholder="••••••••"></div>
+    </div>
+    <div class="form-group"><label class="form-label">Département</label><input class="form-input" type="text" id="nu-dept" placeholder="Ressources Humaines"></div>
+    <button class="btn-primary" onclick="addUser()">Créer l'utilisateur</button>
+    <div class="modal-error" id="add-user-error"></div>
+  </div>
+</div>
+
+<!-- MODAL JOB -->
+<div class="modal-overlay" id="modal-job">
+  <div class="modal-box" style="max-width:560px">
+    <button class="modal-close" onclick="closeModal('modal-job')">✕</button>
+    <div class="modal-icon">💼</div><h2 class="modal-title">Définir la fiche de poste</h2><p class="modal-sub">Décrivez le poste ou joignez un document</p>
+    <div class="tab-bar" style="margin-bottom:20px">
+      <button class="tab-btn active" id="job-tab-text" onclick="switchJobTab('text')">✏️ Saisie manuelle</button>
+      <button class="tab-btn" id="job-tab-file" onclick="switchJobTab('file')">📎 Joindre un document</button>
+    </div>
+    <div id="job-input-text"><div class="form-group"><label class="form-label">Description du poste</label><textarea class="form-input" id="job-desc-text" style="min-height:140px" placeholder="Missions, responsabilités, compétences requises…"></textarea></div></div>
+    <div id="job-input-file" style="display:none">
+      <div class="drop-zone" id="job-drop-zone" style="padding:28px"><input type="file" id="job-file-input" accept=".pdf,.txt,.docx"><span class="dz-icon" style="font-size:28px">📄</span><p class="dz-title" style="font-size:15px">Glissez votre fiche de poste</p><p class="dz-sub">PDF, TXT, DOCX acceptés</p></div>
+      <div id="job-file-name" style="display:none;margin-top:12px" class="file-pill"><span id="job-file-label">—</span><span class="fp-remove" onclick="clearJobFile()">×</span></div>
+    </div>
+    <button class="btn-primary" style="margin-top:16px" onclick="validateJob()">✅ Valider le poste</button>
+    <div class="modal-error" id="job-modal-error"></div>
+  </div>
+</div>
+
+<!-- PAGE ADMIN -->
+<div class="page" id="page-admin">
+  <div class="app-layout">
+    <aside class="sidebar">
+      <div class="sidebar-header"><div class="sidebar-logo-small"><div class="sls-emblem">BV</div><div><div class="sls-name">Direction de<br>Développement BVMAC</div><div class="sls-role" id="admin-sidebar-role">Administrateur</div></div></div></div>
+      <div class="sync-indicator"><div class="sync-dot" id="sync-dot-admin"></div><span id="sync-label-admin">Synchronisé</span></div>
+      <nav class="sidebar-nav">
+        <div class="nav-section-label">Tableau de bord</div>
+        <div class="nav-item active" onclick="adminTab('dashboard',this)"><span class="ni-icon">🏠</span> Accueil</div>
+        <div class="nav-section-label">Configuration</div>
+        <div class="nav-item" onclick="adminTab('api',this)"><span class="ni-icon">⚙️</span> Configuration</div>
+        <div class="nav-item" onclick="adminTab('criteria',this)"><span class="ni-icon">📋</span> Critères</div>
+        <div class="nav-section-label">Utilisateurs</div>
+        <div class="nav-item" onclick="adminTab('users',this)"><span class="ni-icon">👥</span> Gestion comptes <span class="ni-badge" id="users-count-badge">0</span></div>
+        <div class="nav-section-label">Analyse</div>
+        <div class="nav-item" onclick="adminTab('analyze',this)"><span class="ni-icon">🔍</span> Analyser CV</div>
+        <div class="nav-item" onclick="adminTab('history',this)"><span class="ni-icon">📊</span> Historique</div>
+      </nav>
+      <div class="sidebar-footer"><button class="btn-logout" onclick="logout()"><span>↩</span> Déconnexion</button></div>
+    </aside>
+    <main class="main-content">
+      <div class="tab-panel active" id="admin-dashboard">
+        <div class="page-header"><div><div class="page-header-title">Tableau de bord</div><div class="page-header-sub">Vue d'ensemble — données synchronisées Firebase</div></div></div>
+        <div class="stats-row">
+          <div class="stat-card"><div class="stat-number" id="stat-users">0</div><div class="stat-label">Utilisateurs</div></div>
+          <div class="stat-card"><div class="stat-number" id="stat-analyses">0</div><div class="stat-label">Analyses</div></div>
+          <div class="stat-card"><div class="stat-number" id="stat-cv">0</div><div class="stat-label">CV analysés</div></div>
+          <div class="stat-card"><div class="stat-number" id="stat-api">0/3</div><div class="stat-label">API actives</div></div>
+        </div>
+        <div class="panel"><div class="panel-title">🔥 Synchronisation Firebase</div>
+          <div class="info-box">
+            ✅ <strong>Toutes les données sont synchronisées en temps réel</strong> via Firebase.<br>
+            Les clés API, critères, postes, utilisateurs et l'historique sont accessibles depuis n'importe quel appareil.<br><br>
+            <strong>Identifiants admin par défaut :</strong> <code>admin / admin123</code>
+          </div>
+        </div>
+      </div>
+      <div class="tab-panel" id="admin-api">
+        <div class="page-header"><div><div class="page-header-title">Configuration</div><div class="page-header-sub">Firebase, clés API IA et statut de la chaîne</div></div></div>
+
+        <!-- ── Section Firebase STATIQUE ── -->
+        <div class="panel">
+          <div class="panel-title">🔥 Base de données Firebase <span id="fb-panel-badge" style="font-size:12px;font-weight:400;font-family:'JetBrains Mono',monospace;padding:2px 10px;border-radius:10px;margin-left:4px;background:rgba(224,84,84,0.15);color:#f08080">✗ Non configurée</span></div>
+
+          <!-- Statut Firebase (masqué si non connecté) -->
+          <div id="fb-status-block" style="display:none;margin-bottom:20px">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
+              <div style="background:var(--navy);border:1px solid var(--border);border-radius:8px;padding:16px">
+                <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.1em;color:var(--muted);font-family:JetBrains Mono,monospace;margin-bottom:6px">Statut</div>
+                <div id="fb-status-text" style="font-size:14px;font-weight:600;color:#5de0a0">✓ Connecté</div>
+              </div>
+              <div style="background:var(--navy);border:1px solid var(--border);border-radius:8px;padding:16px">
+                <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.1em;color:var(--muted);font-family:JetBrains Mono,monospace;margin-bottom:6px">Projet</div>
+                <div id="fb-project-text" style="font-size:13px;color:var(--white);font-family:JetBrains Mono,monospace">bvmac-rh</div>
+              </div>
+            </div>
+            <div style="background:var(--navy);border:1px solid var(--border);border-radius:8px;padding:14px 16px;margin-bottom:16px">
+              <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.1em;color:var(--muted);font-family:JetBrains Mono,monospace;margin-bottom:6px">Database URL</div>
+              <div id="fb-url-text" style="font-size:12px;color:var(--gold2);font-family:JetBrains Mono,monospace;word-break:break-all"></div>
+            </div>
+            <button class="btn-sm btn-sm-red" onclick="resetFirebaseConfig()">🗑 Réinitialiser Firebase</button>
+            <div style="height:1px;background:var(--border);margin:20px 0"></div>
+          </div>
+
+          <!-- Formulaire de configuration (toujours visible) -->
+          <div id="fb-form-block">
+            <div id="fb-form-title" style="font-size:13px;color:var(--muted);margin-bottom:16px">Saisissez vos informations Firebase pour activer la synchronisation entre appareils.</div>
+            <div class="form-group">
+              <label class="form-label">1. Database URL</label>
+              <input class="form-input" type="text" id="fb-db-url" placeholder="https://bvmac-rh-default-rtdb.europe-west1.firebasedatabase.app">
+            </div>
+            <div class="form-group">
+              <label class="form-label">2. Clé API Firebase (apiKey)</label>
+              <input class="form-input" type="text" id="fb-api-key" placeholder="AIzaSy...">
+            </div>
+            <div class="form-group">
+              <label class="form-label">3. Project ID</label>
+              <input class="form-input" type="text" id="fb-project-id" placeholder="bvmac-rh">
+            </div>
+            <div id="fb-error" style="display:none;background:rgba(224,84,84,0.1);border:1px solid rgba(224,84,84,0.3);color:#f08080;padding:12px 16px;border-radius:8px;font-size:13px;margin-bottom:12px"></div>
+            <button class="btn-primary" style="max-width:260px" id="fb-connect-btn" onclick="connectFirebase()">🔥 Connecter Firebase</button>
+          </div>
+        </div>
+
+        <!-- ── Section Clés API IA ── -->
+        <div class="panel">
+          <div class="panel-title">🤖 Moteurs IA <span style="font-size:12px;font-weight:400;color:var(--muted)">— Groq en priorité, MADJINGAYE en backup</span></div>
+
+          <!-- Groq (prioritaire) -->
+          <div style="border:1px solid var(--border);border-radius:10px;padding:20px;margin-bottom:16px;background:var(--navy)">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+              <span style="font-size:18px">⚡</span>
+              <div style="flex:1"><div style="font-weight:600;color:var(--white)">Groq <span style="font-size:11px;background:rgba(60,184,122,0.15);color:#5de0a0;padding:2px 8px;border-radius:8px;margin-left:6px">Prioritaire</span></div><div style="font-size:11px;color:var(--muted)">Ultra-rapide · Gratuit · console.groq.com/keys</div></div>
+              <span id="groq-status-dot" class="badge badge-red">✗ Non configurée</span>
+            </div>
+            <div class="form-group" style="margin-bottom:12px"><label class="form-label">Clé active</label><div class="api-display"><div class="api-val" id="groq-display-val">Non configurée</div></div></div>
+            <div class="form-group" style="margin-bottom:12px"><label class="form-label">Nouvelle clé</label><input class="form-input" type="password" id="groq-input" placeholder="gsk_..." style="font-family:JetBrains Mono,monospace;font-size:12px"></div>
+            <button class="btn-primary" style="max-width:200px" onclick="saveGroqKey()">💾 Enregistrer</button>
+          </div>
+
+          <!-- MADJINGAYE -->
+          <div style="border:1px solid var(--border);border-radius:10px;padding:20px;margin-bottom:16px;background:var(--navy)">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+              <span style="font-size:18px">🟡</span>
+              <div style="flex:1"><div style="font-weight:600;color:var(--white)">MADJINGAYE <span style="font-size:11px;background:rgba(201,151,28,0.15);color:var(--gold2);padding:2px 8px;border-radius:8px;margin-left:6px">Backup 1</span></div><div style="font-size:11px;color:var(--muted)">Google Gemini · aistudio.google.com/apikey</div></div>
+              <span id="gemini-status-dot" class="badge badge-red">✗ Non configurée</span>
+            </div>
+            <div class="form-group" style="margin-bottom:12px"><label class="form-label">Clé active</label><div class="api-display"><div class="api-val" id="api-display-val">Non configurée</div><button class="btn-icon" onclick="toggleApiVis()">👁</button></div></div>
+            <div class="form-group" style="margin-bottom:12px"><label class="form-label">Nouvelle clé</label><input class="form-input" type="password" id="api-input" placeholder="AIzaSy..." style="font-family:JetBrains Mono,monospace;font-size:12px"></div>
+            <button class="btn-primary" style="max-width:200px" onclick="saveApiKey()">💾 Enregistrer</button>
+          </div>
+
+          <!-- Mistral -->
+          <div style="border:1px solid var(--border);border-radius:10px;padding:20px;background:var(--navy)">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+              <span style="font-size:18px">🔵</span>
+              <div style="flex:1"><div style="font-weight:600;color:var(--white)">Mistral <span style="font-size:11px;background:rgba(100,160,230,0.15);color:#80b8f0;padding:2px 8px;border-radius:8px;margin-left:6px">Backup 2</span></div><div style="font-size:11px;color:var(--muted)">Excellent en français · console.mistral.ai/api-keys</div></div>
+              <span id="mistral-status-dot" class="badge badge-red">✗ Non configurée</span>
+            </div>
+            <div class="form-group" style="margin-bottom:12px"><label class="form-label">Clé active</label><div class="api-display"><div class="api-val" id="mistral-display-val">Non configurée</div></div></div>
+            <div class="form-group" style="margin-bottom:12px"><label class="form-label">Nouvelle clé</label><input class="form-input" type="password" id="mistral-input" placeholder="..." style="font-family:JetBrains Mono,monospace;font-size:12px"></div>
+            <button class="btn-primary" style="max-width:200px" onclick="saveMistralKey()">💾 Enregistrer</button>
+          </div>
+        </div>
+
+        <!-- ── Statut chaîne ── -->
+        <div class="panel"><div class="panel-title">🔄 Statut de la chaîne</div><div id="api-chain-status"></div></div>
+      </div>
+      <div class="tab-panel" id="admin-criteria">
+        <div class="page-header"><div><div class="page-header-title">Critères d'évaluation</div><div class="page-header-sub">Synchronisés pour tous les utilisateurs</div></div></div>
+        <div class="panel"><div class="panel-title">💼 Postes à pourvoir</div>
+          <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-bottom:16px">
+            <div style="flex:1;min-width:200px"><label class="form-label">Intitulé du poste</label><input class="form-input" type="text" id="admin-job-title" placeholder="ex: Analyste Financier Senior"></div>
+            <button class="btn-primary" style="max-width:180px;padding:11px" onclick="openJobModal()">+ Définir le poste</button>
+          </div>
+          <div id="jobs-list"></div>
+          <div class="info-box" style="margin-top:16px">💡 Cliquez sur un poste pour l'activer. Le poste actif est visible par tous les utilisateurs.</div>
+        </div>
+        <div class="panel"><div class="panel-title">📋 Critères prédéfinis</div>
+          <div id="admin-crit-grid"></div>
+          <div class="separator"></div>
+          <div class="form-group"><label class="form-label">Critères supplémentaires (un par ligne)</label><textarea class="form-input" id="admin-custom-criteria" placeholder="Un critère par ligne…"></textarea></div>
+          <button class="btn-primary" style="max-width:220px" onclick="saveCriteria()">💾 Enregistrer & synchroniser</button>
+        </div>
+      </div>
+      <div class="tab-panel" id="admin-users">
+        <div class="page-header"><div><div class="page-header-title">Utilisateurs</div><div class="page-header-sub">Comptes synchronisés Firebase</div></div>
+          <button class="btn-primary" style="max-width:180px;padding:10px" onclick="openModal('modal-add-user')">+ Nouvel utilisateur</button>
+        </div>
+        <div class="panel" style="padding:0"><table class="data-table"><thead><tr><th>Utilisateur</th><th>Identifiant</th><th>Département</th><th>Statut</th><th>Actions</th></tr></thead><tbody id="users-tbody"></tbody></table></div>
+      </div>
+      <div class="tab-panel" id="admin-analyze">
+        <div class="page-header"><div><div class="page-header-title">Analyser des CV</div><div class="page-header-sub">PDF, DOCX, TXT — max 50 CV</div></div></div>
+        <div id="admin-analyze-container"></div>
+      </div>
+      <div class="tab-panel" id="admin-history">
+        <div class="page-header"><div><div class="page-header-title">Historique</div><div class="page-header-sub">Toutes les analyses — synchronisé Firebase</div></div></div>
+        <div class="panel" style="padding:0"><table class="data-table"><thead><tr><th>Date</th><th>Utilisateur</th><th>Poste</th><th>CV</th><th>Score max</th></tr></thead><tbody id="history-tbody"></tbody></table></div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<!-- PAGE USER -->
+<div class="page" id="page-user">
+  <div class="app-layout">
+    <aside class="sidebar">
+      <div class="sidebar-header"><div class="sidebar-logo-small"><div class="sls-emblem">BV</div><div><div class="sls-name">Direction de<br>Développement BVMAC</div><div class="sls-role" id="user-sidebar-role">Utilisateur</div></div></div></div>
+      <div class="sync-indicator"><div class="sync-dot" id="sync-dot-user"></div><span id="sync-label-user">Synchronisé</span></div>
+      <nav class="sidebar-nav">
+        <div class="nav-section-label">Navigation</div>
+        <div class="nav-item active" onclick="userTab('analyze',this)"><span class="ni-icon">🔍</span> Analyser des CV</div>
+        <div class="nav-item" onclick="userTab('results',this)"><span class="ni-icon">📊</span> Résultats</div>
+      </nav>
+      <div class="sidebar-footer"><button class="btn-logout" onclick="logout()"><span>↩</span> Déconnexion</button></div>
+    </aside>
+    <main class="main-content">
+      <div class="tab-panel active" id="user-analyze">
+        <div class="page-header"><div><div class="page-header-title">Analyser des CV</div><div class="page-header-sub" id="user-job-sub">Poste : —</div></div></div>
+        <div class="restricted-notice">🔒 Les critères et le poste sont définis par l'administrateur.</div>
+        <div id="user-analyze-container"></div>
+      </div>
+      <div class="tab-panel" id="user-results">
+        <div class="page-header"><div><div class="page-header-title">Résultats</div><div class="page-header-sub">Classement des candidats</div></div></div>
+        <div id="user-results-container"><div class="panel" style="text-align:center;padding:60px"><div style="font-size:48px;margin-bottom:16px">📂</div><div style="color:var(--muted)">Aucune analyse effectuée.</div></div></div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<div class="toast-container" id="toast-container"></div>
+
+<script>
+// ══════════════════════════════════════════
+// PDF.js setup
+// ══════════════════════════════════════════
+if(typeof pdfjsLib!=='undefined'){
+  pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+}
+
+// ══════════════════════════════════════════
+// FIREBASE CONFIG — stored in localStorage
+// ══════════════════════════════════════════
+var DB = null; // Firebase database reference
+var FB_CONNECTED = false;
+
+function getFirebaseConfig(){
+  var raw = localStorage.getItem('bvmac_fb_config');
+  return raw ? JSON.parse(raw) : null;
+}
+function setFirebaseConfig(cfg){
+  localStorage.setItem('bvmac_fb_config', JSON.stringify(cfg));
+}
+function resetFirebaseConfig(){
+  if(!confirm('Reconfigurer Firebase ? Vous devrez saisir à nouveau la configuration.')) return;
+  localStorage.removeItem('bvmac_fb_config');
+  location.reload();
+}
+
+async function connectFirebase(){
+  var dbUrl     = (document.getElementById('fb-db-url')     ||{}).value||'';
+  var apiKey    = (document.getElementById('fb-api-key')    ||{}).value||'';
+  var projectId = (document.getElementById('fb-project-id') ||{}).value||'';
+  dbUrl=dbUrl.trim(); apiKey=apiKey.trim(); projectId=projectId.trim();
+
+  var errEl = document.getElementById('fb-error');
+  var btn   = document.getElementById('fb-connect-btn');
+  if(errEl) errEl.style.display='none';
+
+  // Validation
+  if(!dbUrl||!apiKey||!projectId){
+    if(errEl){errEl.textContent='⚠ Remplissez les 3 champs.';errEl.style.display='block';}
+    return;
+  }
+  if(!dbUrl.startsWith('https://')){
+    if(errEl){errEl.textContent='⚠ L\'URL doit commencer par https://';errEl.style.display='block';}
+    return;
+  }
+
+  // Lock button
+  if(btn){btn.disabled=true;btn.innerHTML='<span class="spinner"></span> Connexion en cours…';}
+
+  var cfg = {
+    apiKey:        apiKey,
+    authDomain:    projectId+'.firebaseapp.com',
+    databaseURL:   dbUrl,
+    projectId:     projectId,
+    storageBucket: projectId+'.firebasestorage.app',
+  };
+  setFirebaseConfig(cfg);
+
+  try{
+    await initFirebase(cfg);
+
+    // Update UI to show connected state
+    var badge = document.getElementById('fb-panel-badge');
+    if(badge){badge.textContent='✓ Connecté';badge.style.background='rgba(60,184,122,0.15)';badge.style.color='#5de0a0';}
+
+    var statusBlock  = document.getElementById('fb-status-block');
+    var formTitle    = document.getElementById('fb-form-title');
+    var urlText      = document.getElementById('fb-url-text');
+    var projectText  = document.getElementById('fb-project-text');
+    if(statusBlock) statusBlock.style.display='block';
+    if(urlText)     urlText.textContent=dbUrl;
+    if(projectText) projectText.textContent=projectId;
+    if(formTitle)   formTitle.textContent='Firebase connecté. Vous pouvez modifier la configuration ci-dessous si nécessaire.';
+
+    // Clear fields
+    document.getElementById('fb-db-url').value='';
+    document.getElementById('fb-api-key').value='';
+    document.getElementById('fb-project-id').value='';
+
+    if(btn){btn.disabled=false;btn.innerHTML='🔄 Reconnecter Firebase';}
+    renderAllApiDisplays();
+    showToast('🔥 Firebase connecté et synchronisé !','success');
+
+  }catch(e){
+    if(errEl){errEl.textContent='❌ Erreur : '+e.message+' — Vérifiez vos informations.';errEl.style.display='block';}
+    localStorage.removeItem('bvmac_fb_config');
+    if(btn){btn.disabled=false;btn.innerHTML='🔥 Connecter Firebase';}
+  }
+}
+
+// Kept for backward compatibility
+async function saveFirebaseConfig(){ return connectFirebase(); }
+
+async function initFirebase(cfg){
+  try {
+    // Supprimer l'app existante si présente
+    try { await firebase.app().delete(); } catch(e) {}
+
+    var app = firebase.initializeApp(cfg);
+    DB = firebase.database(app);
+
+    // Test rapide avec timeout 4s
+    await Promise.race([
+      DB.ref('_ping').set(Date.now()),
+      new Promise(function(_,rej){ setTimeout(function(){ rej(new Error('ping timeout')); }, 4000); })
+    ]);
+
+    FB_CONNECTED = true;
+    await loadAllFromFirebase();
+    setupFirebaseListeners();
+    updateFbStatusBadge(true);
+
+  } catch(e) {
+    FB_CONNECTED = false;
+    DB = null;
+    // On ne bloque pas l'app — on continue en mode local silencieusement
+    console.warn('Firebase non disponible:', e.message);
+    throw e;
+  }
+}
+
+// ══════════════════════════════════════════
+// STATE (in-memory, synced from Firebase)
+// ══════════════════════════════════════════
+const STATE = {
+  currentRole:null, currentUser:null,
+  apiKey:'', groqKey:'', mistralKey:'',
+  apiVisible:false, loginTarget:'admin',
+  analyses:[], totalCv:0,
+  results:[], uploadedFiles:[],
+  selectedCriteria:new Set(['education','finance','tools','experience']),
+};
+var customCriteriaList = [];
+var criteriaDescriptions = {};
+var ACCOUNTS = { admin:{password:'admin123',role:'admin',name:'Administrateur',dept:'Direction',active:true} };
+var CRITERIA_CONFIG = {selected:['education','finance','tools','experience'],custom:'',jobTitle:''};
+var JOBS = [];
+var JOB  = {active:false,title:'',description:'',fileBase64:null,fileName:''};
+
+const DEFAULT_CRITERIA = [
+  {id:'education',    name:"Niveau d'études",          desc:'Bac+5, école de commerce…'},
+  {id:'finance',      name:'Expérience finance',        desc:'Banque, marchés, gestion…'},
+  {id:'tools',        name:'Outils techniques',         desc:'Excel, Bloomberg, Python…'},
+  {id:'languages',    name:'Langues',                   desc:'Anglais, multilinguisme…'},
+  {id:'experience',   name:"Années d'expérience",       desc:'Volume et pertinence…'},
+  {id:'leadership',   name:'Leadership & management',   desc:"Encadrement d'équipes…"},
+  {id:'international',name:'Expérience internationale', desc:"Postes à l'étranger…"},
+  {id:'startups',     name:'Esprit entrepreneurial',    desc:'Startups, innovation…'},
+];
+
+// ══════════════════════════════════════════
+// FIREBASE READ / WRITE HELPERS
+// ══════════════════════════════════════════
+function fbSet(path, data){
+  if(!DB){ console.warn('Firebase non connecté — sauvegarde locale uniquement pour:', path); return Promise.resolve(); }
+  return DB.ref(path).set(data).catch(function(e){ console.warn('fbSet erreur:', path, e.message); });
+}
+function fbGet(path){
+  if(!DB) return Promise.resolve(null);
+  return DB.ref(path).once('value').then(s=>s.val()).catch(function(){ return null; });
+}
+
+async function loadAllFromFirebase(){
+  setSyncStatus('syncing','Chargement…');
+  try {
+    var [apiKeys, accounts, criteria, jobs, history, totalCv, critDesc] = await Promise.all([
+      fbGet('config/apiKeys'),
+      fbGet('accounts'),
+      fbGet('config/criteria'),
+      fbGet('config/jobs'),
+      fbGet('history'),
+      fbGet('stats/totalCv'),
+      fbGet('config/critDesc'),
+    ]);
+
+    // API keys — Firebase prioritaire, localStorage en fallback
+    if(apiKeys){
+      STATE.apiKey     = apiKeys.madjingaye||'';
+      STATE.groqKey    = apiKeys.groq||'';
+      STATE.mistralKey = apiKeys.mistral||'';
+      // Sync vers localStorage
+      if(STATE.apiKey)     localStorage.setItem('bvmac_key_gemini',  STATE.apiKey);
+      if(STATE.groqKey)    localStorage.setItem('bvmac_key_groq',    STATE.groqKey);
+      if(STATE.mistralKey) localStorage.setItem('bvmac_key_mistral', STATE.mistralKey);
+    } else {
+      // Fallback localStorage si Firebase n'a pas les clés
+      STATE.apiKey     = localStorage.getItem('bvmac_key_gemini')  || STATE.apiKey  || '';
+      STATE.groqKey    = localStorage.getItem('bvmac_key_groq')    || STATE.groqKey || '';
+      STATE.mistralKey = localStorage.getItem('bvmac_key_mistral') || STATE.mistralKey || '';
+      // Syncer vers Firebase si on a des clés en local
+      if(STATE.apiKey)     DB.ref('config/apiKeys/madjingaye').set(STATE.apiKey).catch(()=>{});
+      if(STATE.groqKey)    DB.ref('config/apiKeys/groq').set(STATE.groqKey).catch(()=>{});
+      if(STATE.mistralKey) DB.ref('config/apiKeys/mistral').set(STATE.mistralKey).catch(()=>{});
+    }
+
+    if(accounts){
+      ACCOUNTS = Object.assign({admin:{password:'admin123',role:'admin',name:'Administrateur',dept:'Direction',active:true}}, accounts);
+    }
+    if(criteria){
+      CRITERIA_CONFIG = criteria;
+      STATE.selectedCriteria = new Set(criteria.selected||['education','finance','tools','experience']);
+      localStorage.setItem('bvmac_criteria_bk', JSON.stringify(criteria));
+    } else {
+      // Fallback localStorage
+      var localCrit = localStorage.getItem('bvmac_criteria_bk');
+      if(localCrit){ var c=JSON.parse(localCrit); CRITERIA_CONFIG=c; STATE.selectedCriteria=new Set(c.selected||[]); }
+    }
+
+    if(jobs){
+      JOBS = Array.isArray(jobs) ? jobs : Object.values(jobs);
+      localStorage.setItem('bvmac_jobs_bk', JSON.stringify(JOBS));
+    } else {
+      // Fallback localStorage
+      var localJobs = localStorage.getItem('bvmac_jobs_bk');
+      if(localJobs) JOBS = JSON.parse(localJobs);
+    }
+
+    // Restaurer le poste actif si enregistré
+    var savedJob = localStorage.getItem('bvmac_active_job');
+    if(savedJob){ var aj=JSON.parse(savedJob); if(aj&&aj.active) JOB=aj; }
+
+    if(history){
+      if(Array.isArray(history)) STATE.analyses = history;
+      else STATE.analyses = Object.values(history).sort((a,b)=>a.timestamp-b.timestamp);
+    }
+    if(totalCv) STATE.totalCv = totalCv;
+    if(critDesc) criteriaDescriptions = critDesc;
+
+    setSyncStatus('ok','Synchronisé');
+  } catch(e){
+    setSyncStatus('error','Erreur sync');
+    console.error('Firebase load error:', e);
+    // Fallback complet sur localStorage
+    STATE.apiKey     = localStorage.getItem('bvmac_key_gemini')  || '';
+    STATE.groqKey    = localStorage.getItem('bvmac_key_groq')    || '';
+    STATE.mistralKey = localStorage.getItem('bvmac_key_mistral') || '';
+    var lc=localStorage.getItem('bvmac_criteria_bk'); if(lc){var c2=JSON.parse(lc);CRITERIA_CONFIG=c2;STATE.selectedCriteria=new Set(c2.selected||[]);}
+    var lj=localStorage.getItem('bvmac_jobs_bk'); if(lj) JOBS=JSON.parse(lj);
+    var la=localStorage.getItem('bvmac_active_job'); if(la){var aj2=JSON.parse(la);if(aj2&&aj2.active)JOB=aj2;}
+  }
+}
+
+function setupFirebaseListeners(){
+  // Real-time listeners for live updates
+  DB.ref('config/apiKeys').on('value', snap=>{
+    var v=snap.val(); if(!v) return;
+    STATE.apiKey=v.madjingaye||'';STATE.groqKey=v.groq||'';STATE.mistralKey=v.mistral||'';
+    renderAllApiDisplays();
+  });
+  DB.ref('accounts').on('value', snap=>{
+    var v=snap.val(); if(!v) return;
+    ACCOUNTS=Object.assign({admin:{password:'admin123',role:'admin',name:'Administrateur',dept:'Direction',active:true}},v);
+    renderUsersTable(); refreshAdminDashboard();
+  });
+  DB.ref('config/criteria').on('value', snap=>{
+    var v=snap.val(); if(!v) return;
+    CRITERIA_CONFIG=v; STATE.selectedCriteria=new Set(v.selected||[]);
+    renderAdminCriteria(); renderJobsList();
+  });
+  DB.ref('config/jobs').on('value', snap=>{
+    var v=snap.val(); if(!v){JOBS=[];renderJobsList();return;}
+    JOBS=Array.isArray(v)?v:Object.values(v);
+    renderJobsList();
+  });
+  DB.ref('history').on('value', snap=>{
+    var v=snap.val(); if(!v){STATE.analyses=[];renderHistory();return;}
+    STATE.analyses=Array.isArray(v)?v:Object.values(v).sort((a,b)=>(a.timestamp||0)-(b.timestamp||0));
+    renderHistory(); refreshAdminDashboard();
+  });
+  DB.ref('stats/totalCv').on('value', snap=>{
+    var v=snap.val(); if(v) STATE.totalCv=v;
+    var el=document.getElementById('stat-cv'); if(el) el.textContent=STATE.totalCv;
+  });
+  // Connection status
+  DB.ref('.info/connected').on('value', snap=>{
+    FB_CONNECTED=snap.val()===true;
+    updateFbStatusBadge(FB_CONNECTED);
+    setSyncStatus(FB_CONNECTED?'ok':'error', FB_CONNECTED?'Synchronisé':'Hors ligne');
+  });
+}
+
+function setSyncStatus(status, label){
+  ['admin','user'].forEach(role=>{
+    var dot=document.getElementById('sync-dot-'+role), lbl=document.getElementById('sync-label-'+role);
+    if(dot){dot.className='sync-dot'+(status==='syncing'?' syncing':status==='error'?' error':'');}
+    if(lbl)lbl.textContent=label;
+  });
+}
+
+function updateFbStatusBadge(connected){
+  var el=document.getElementById('home-fb-status'); if(!el) return;
+  if(connected){
+    el.className='fb-status connected';
+    el.innerHTML='<div class="fb-dot"></div><span>Firebase connecté — données synchronisées</span>';
+  } else {
+    el.className='fb-status disconnected';
+    el.innerHTML='<div class="fb-dot"></div><span>Hors ligne — tentative de reconnexion…</span>';
+  }
+}
+
+// ══════════════════════════════════════════
+// APP INIT
+// ══════════════════════════════════════════
+async function initApp(){
+  var overlay = document.getElementById('loading-overlay');
+
+  // ── Masquer l'overlay IMMÉDIATEMENT ──
+  if(overlay) overlay.style.display='none';
+
+  // ── Charger localStorage ──
+  STATE.apiKey     = localStorage.getItem('bvmac_key_gemini')  || '';
+  STATE.groqKey    = localStorage.getItem('bvmac_key_groq')    || '';
+  STATE.mistralKey = localStorage.getItem('bvmac_key_mistral') || '';
+  try{ var lc=localStorage.getItem('bvmac_criteria_bk'); if(lc){var c=JSON.parse(lc);CRITERIA_CONFIG=c;STATE.selectedCriteria=new Set(c.selected||[]);} }catch(e){}
+  try{ var lj=localStorage.getItem('bvmac_jobs_bk'); if(lj) JOBS=JSON.parse(lj); }catch(e){}
+  try{ var la=localStorage.getItem('bvmac_active_job'); if(la){var aj=JSON.parse(la);if(aj&&aj.active)JOB=aj;} }catch(e){}
+
+  // ── Afficher la page d'accueil ──
+  showPage('page-home');
+  updateFbStatusBadge(false);
+
+  // ── Connecter Firebase en arrière-plan ──
+  var cfg = getFirebaseConfig();
+  if(!cfg) return;
+
+  setTimeout(function(){
+    var fbTimeout = new Promise(function(_,reject){ setTimeout(function(){ reject(new Error('Timeout')); }, 6000); });
+    Promise.race([initFirebase(cfg), fbTimeout])
+      .then(function(){ updateFbStatusBadge(true); showToast('🔥 Firebase synchronisé','success'); })
+      .catch(function(e){ console.warn('Firebase:', e.message); });
+  }, 200);
+}
+
+// Start app — toujours exécuté même si Firebase échoue
+try { initApp(); } catch(e){ 
+  console.warn('initApp error:', e);
+  // Forcer l'affichage de la page d'accueil même en cas d'erreur
+  try {
+    document.getElementById('loading-overlay').style.display='none';
+    document.querySelectorAll('.page').forEach(function(p){ p.classList.remove('active'); });
+    document.getElementById('page-home').classList.add('active');
+  } catch(e2){}
+}
+
+// ══════════════════════════════════════════
+// AUTH
+// ══════════════════════════════════════════
+function openLogin(role){
+  STATE.loginTarget=role;
+  document.getElementById('modal-icon').textContent=role==='admin'?'🔐':'👤';
+  document.getElementById('modal-title').textContent=role==='admin'?'Connexion Administrateur':'Connexion Utilisateur';
+  document.getElementById('modal-sub').textContent=role==='admin'?'Accès complet':'Accès restreint';
+  document.getElementById('login-username').value='';document.getElementById('login-password').value='';
+  document.getElementById('login-error').classList.remove('visible');
+  openModal('modal-login');setTimeout(()=>document.getElementById('login-username').focus(),300);
+}
+function doLogin(){
+  var u=document.getElementById('login-username').value.trim(),p=document.getElementById('login-password').value;
+  var acc=ACCOUNTS[u],errEl=document.getElementById('login-error');
+  if(!acc||acc.password!==p){errEl.textContent='Identifiants incorrects.';errEl.classList.add('visible');return;}
+  if(!acc.active){errEl.textContent='Compte désactivé.';errEl.classList.add('visible');return;}
+  if(STATE.loginTarget==='admin'&&acc.role!=='admin'){errEl.textContent='Pas de droits admin.';errEl.classList.add('visible');return;}
+  closeModal('modal-login');STATE.currentUser=u;STATE.currentRole=acc.role;
+  STATE.selectedCriteria=new Set(CRITERIA_CONFIG.selected||[]);
+  if(acc.role==='admin'){
+    document.getElementById('admin-sidebar-role').textContent=acc.name;
+    showPage('page-admin');refreshAdminDashboard();renderAdminCriteria();renderUsersTable();renderAllApiDisplays();renderFirebasePanel();buildAnalyzePanel('admin');
+    // Pre-fill Firebase fields if config already saved
+    var cfg=getFirebaseConfig();
+    if(cfg){
+      var u=document.getElementById('fb-db-url'),a=document.getElementById('fb-api-key'),p=document.getElementById('fb-project-id');
+      // Don't pre-fill sensitive fields, just show status
+    }
+  } else {
+    document.getElementById('user-sidebar-role').textContent=acc.name;
+    document.getElementById('user-job-sub').textContent='Poste : '+(CRITERIA_CONFIG.jobTitle||'Non défini');
+    showPage('page-user');buildAnalyzePanel('user');
+  }
+  showToast('✅ Connecté en tant que '+acc.name,'success');
+}
+document.getElementById('login-password').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});
+function logout(){STATE.currentRole=null;STATE.currentUser=null;STATE.results=[];STATE.uploadedFiles=[];showPage('page-home');showToast('Déconnecté.','');}
+
+// ══════════════════════════════════════════
+// NAVIGATION
+// ══════════════════════════════════════════
+function showPage(id){document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));document.getElementById(id).classList.add('active');}
+function adminTab(name,el){
+  document.querySelectorAll('#page-admin .nav-item').forEach(i=>i.classList.remove('active'));if(el)el.classList.add('active');
+  ['dashboard','api','criteria','users','analyze','history'].forEach(p=>{var panel=document.getElementById('admin-'+p);if(panel)panel.style.display=p===name?'block':'none';});
+  if(name==='api'){ renderFirebasePanel(); renderAllApiDisplays(); }
+}
+function userTab(name,el){
+  document.querySelectorAll('#page-user .nav-item').forEach(i=>i.classList.remove('active'));if(el)el.classList.add('active');
+  ['analyze','results'].forEach(p=>{var panel=document.getElementById('user-'+p);if(panel)panel.style.display=p===name?'block':'none';});
+}
+function openModal(id){document.getElementById(id).classList.add('active');}
+function closeModal(id){document.getElementById(id).classList.remove('active');}
+document.querySelectorAll('.modal-overlay').forEach(m=>m.addEventListener('click',e=>{if(e.target===m)m.classList.remove('active');}));
+
+// ══════════════════════════════════════════
+// FIREBASE PANEL (dans onglet Configuration)
+// ══════════════════════════════════════════
+function renderFirebasePanel(){
+  var cfg = getFirebaseConfig();
+  var badge       = document.getElementById('fb-panel-badge');
+  var statusBlock = document.getElementById('fb-status-block');
+  var formTitle   = document.getElementById('fb-form-title');
+  var urlText     = document.getElementById('fb-url-text');
+  var projectText = document.getElementById('fb-project-text');
+
+  if(!cfg){
+    if(badge){badge.textContent='✗ Non configurée';badge.style.background='rgba(224,84,84,0.15)';badge.style.color='#f08080';}
+    if(statusBlock) statusBlock.style.display='none';
+    if(formTitle)   formTitle.textContent='Saisissez vos informations Firebase pour activer la synchronisation entre appareils.';
+    return;
+  }
+  // Connected
+  var statusColor = FB_CONNECTED ? '#5de0a0' : '#f08080';
+  var statusText  = FB_CONNECTED ? '✓ Connecté' : '✗ Hors ligne';
+  if(badge){badge.textContent=statusText;badge.style.background=FB_CONNECTED?'rgba(60,184,122,0.15)':'rgba(224,84,84,0.15)';badge.style.color=statusColor;}
+  if(statusBlock) statusBlock.style.display='block';
+  if(urlText)     urlText.textContent=cfg.databaseURL||'';
+  if(projectText) projectText.textContent=cfg.projectId||'';
+  if(formTitle)   formTitle.textContent='Firebase connecté. Vous pouvez modifier la configuration ci-dessous si nécessaire.';
+  var btn=document.getElementById('fb-connect-btn');
+  if(btn) btn.innerHTML='🔄 Reconnecter Firebase';
+}
+
+// ══════════════════════════════════════════
+// API KEYS — saved to Firebase
+// ══════════════════════════════════════════
+function renderAllApiDisplays(){
+  var mask=k=>k?k.substring(0,8)+'••••••••••••':'Non configurée';
+  var el1=document.getElementById('api-display-val');    if(el1)el1.textContent=mask(STATE.apiKey);
+  var el2=document.getElementById('groq-display-val');   if(el2)el2.textContent=mask(STATE.groqKey);
+  var el3=document.getElementById('mistral-display-val');if(el3)el3.textContent=mask(STATE.mistralKey);
+
+  // Status dots next to each engine label
+  [
+    {id:'groq-status-dot',    key:STATE.groqKey,    label:'Groq'},
+    {id:'gemini-status-dot',  key:STATE.apiKey,     label:'MADJINGAYE'},
+    {id:'mistral-status-dot', key:STATE.mistralKey, label:'Mistral'},
+  ].forEach(function(x){
+    var dot=document.getElementById(x.id); if(!dot)return;
+    if(x.key){ dot.textContent='✓ Configurée'; dot.className='badge badge-green'; }
+    else      { dot.textContent='✗ Non configurée'; dot.className='badge badge-red'; }
+  });
+
+  var chain=document.getElementById('api-chain-status');
+  if(chain){
+    var items=[
+      {l:'Groq',       k:STATE.groqKey,    i:'⚡',r:'Prioritaire'},
+      {l:'MADJINGAYE', k:STATE.apiKey,     i:'🟡',r:'Backup 1'},
+      {l:'Mistral',    k:STATE.mistralKey, i:'🔵',r:'Backup 2'},
+    ];
+    chain.innerHTML=items.map(x=>'<div style="display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--border)"><span style="font-size:18px">'+x.i+'</span><div style="flex:1"><div style="font-weight:500;color:var(--white)">'+x.l+'</div><div style="font-size:11px;color:var(--muted)">'+x.r+'</div></div><span class="badge '+(x.k?'badge-green':'badge-red')+'">'+(x.k?'✓ Configurée':'✗ Manquante')+'</span></div>').join('');
+  }
+  var s=document.getElementById('stat-api');if(s)s.textContent=[STATE.apiKey,STATE.groqKey,STATE.mistralKey].filter(Boolean).length+'/3';
+}
+function toggleApiVis(){STATE.apiVisible=!STATE.apiVisible;var el=document.getElementById('api-display-val');if(el)el.textContent=STATE.apiVisible&&STATE.apiKey?STATE.apiKey:STATE.apiKey?STATE.apiKey.substring(0,8)+'••••••••••••':'Non configurée';}
+
+async function saveApiKey(){
+  var inp=document.getElementById('api-input'); if(!inp)return;
+  var v=inp.value.trim(); if(!v){showToast('Entrez une clé valide.','error');return;}
+  STATE.apiKey=v;
+  localStorage.setItem('bvmac_key_gemini', v); // fallback local
+  if(DB){ try{ await DB.ref('config/apiKeys/madjingaye').set(v); showToast('🔑 Clé MADJINGAYE enregistrée & synchronisée.','success'); }catch(e){ showToast('🔑 Clé MADJINGAYE enregistrée localement.','success'); } }
+  else   { showToast('🔑 Clé MADJINGAYE enregistrée.','success'); }
+  inp.value=''; renderAllApiDisplays();
+}
+
+async function saveGroqKey(){
+  var inp=document.getElementById('groq-input'); if(!inp)return;
+  var v=inp.value.trim(); if(!v){showToast('Entrez une clé valide.','error');return;}
+  STATE.groqKey=v;
+  localStorage.setItem('bvmac_key_groq', v); // fallback local
+  if(DB){ try{ await DB.ref('config/apiKeys/groq').set(v); showToast('⚡ Clé Groq enregistrée & synchronisée.','success'); }catch(e){ showToast('⚡ Clé Groq enregistrée localement.','success'); } }
+  else   { showToast('⚡ Clé Groq enregistrée.','success'); }
+  inp.value=''; renderAllApiDisplays();
+}
+
+async function saveMistralKey(){
+  var inp=document.getElementById('mistral-input'); if(!inp)return;
+  var v=inp.value.trim(); if(!v){showToast('Entrez une clé valide.','error');return;}
+  STATE.mistralKey=v;
+  localStorage.setItem('bvmac_key_mistral', v); // fallback local
+  if(DB){ try{ await DB.ref('config/apiKeys/mistral').set(v); showToast('🔵 Clé Mistral enregistrée & synchronisée.','success'); }catch(e){ showToast('🔵 Clé Mistral enregistrée localement.','success'); } }
+  else   { showToast('🔵 Clé Mistral enregistrée.','success'); }
+  inp.value=''; renderAllApiDisplays();
+}
+
+// ══════════════════════════════════════════
+// CRITERIA — saved to Firebase
+// ══════════════════════════════════════════
+function renderAdminCriteria(){
+  var grid=document.getElementById('admin-crit-grid');if(!grid)return;
+  grid.innerHTML=DEFAULT_CRITERIA.map(c=>{var a=STATE.selectedCriteria.has(c.id),s=criteriaDescriptions[c.id]||'';return '<div id="wrap-'+c.id+'"><div class="crit-card'+(a?' active':'')+'" data-critid="'+c.id+'"><div class="crit-check" data-critid="'+c.id+'" style="cursor:pointer;flex-shrink:0;margin-top:3px"></div><div style="flex:1"><div style="display:flex;justify-content:space-between;gap:8px"><div data-critid="'+c.id+'" style="cursor:pointer;flex:1"><div class="crit-name">'+c.name+'</div><div class="crit-desc">'+c.desc+'</div></div><button data-descid="'+c.id+'" style="background:none;border:1px solid var(--border);color:var(--muted);cursor:pointer;font-size:12px;padding:3px 8px;border-radius:4px;white-space:nowrap;flex-shrink:0">✎ Décrire</button></div><div id="desc-'+c.id+'" style="display:'+(s?'block':'none')+';margin-top:10px"><textarea class="form-input" data-critdescid="'+c.id+'" style="min-height:60px;font-size:12px">'+s+'</textarea></div></div></div></div>';}).join('');
+  grid.addEventListener('click',function(ev){var d=ev.target.closest('[data-descid]'),c=ev.target.closest('[data-critid]');if(d){var id=d.getAttribute('data-descid');var el=document.getElementById('desc-'+id);if(el){el.style.display=el.style.display==='none'?'block':'none';if(el.style.display==='block')el.querySelector('textarea').focus();}return;}if(c&&!ev.target.closest('[data-critdescid]')){var id=c.getAttribute('data-critid'),wrap=document.getElementById('wrap-'+id);if(!wrap)return;var card=wrap.querySelector('.crit-card');if(STATE.selectedCriteria.has(id)){STATE.selectedCriteria.delete(id);if(card)card.classList.remove('active');}else{STATE.selectedCriteria.add(id);if(card)card.classList.add('active');}}});
+  grid.addEventListener('change',function(ev){var ta=ev.target.closest('[data-critdescid]');if(ta){criteriaDescriptions[ta.getAttribute('data-critdescid')]=ta.value.trim();fbSet('config/critDesc',criteriaDescriptions);}});
+  var cc=document.getElementById('admin-custom-criteria');if(cc)cc.value=CRITERIA_CONFIG.custom||'';
+  renderJobsList();
+}
+async function saveCriteria(){
+  var customEl = document.getElementById('admin-custom-criteria');
+  var customVal = customEl ? customEl.value : '';
+  CRITERIA_CONFIG.selected = [...STATE.selectedCriteria];
+  CRITERIA_CONFIG.custom   = customVal;
+
+  // Sauvegarde locale immédiate (filet de sécurité)
+  localStorage.setItem('bvmac_criteria_bk', JSON.stringify(CRITERIA_CONFIG));
+
+  var customLines = customVal.split('\n').map(s=>s.trim()).filter(Boolean);
+  try{
+    await fbSet('config/criteria', CRITERIA_CONFIG);
+    var msg = '📋 Critères enregistrés & synchronisés.';
+    if(customLines.length > 0) msg += ' ('+customLines.length+' critère(s) personnalisé(s))';
+    showToast(msg, 'success');
+  } catch(e){
+    var msg2 = '📋 Critères enregistrés localement.';
+    if(customLines.length > 0) msg2 += ' ('+customLines.length+' critère(s) personnalisé(s))';
+    showToast(msg2, 'success');
+  }
+  renderUserCriteriaDisplay();
+}
+
+// ══════════════════════════════════════════
+// USERS — saved to Firebase
+// ══════════════════════════════════════════
+function renderUsersTable(){
+  var entries=Object.entries(ACCOUNTS).filter(([u])=>u!=='admin');
+  var badge=document.getElementById('users-count-badge');if(badge)badge.textContent=entries.length;
+  var su=document.getElementById('stat-users');if(su)su.textContent=entries.length;
+  var tbody=document.getElementById('users-tbody');if(!tbody)return;
+  if(!entries.length){tbody.innerHTML='<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:32px">Aucun utilisateur.</td></tr>';return;}
+  tbody.innerHTML=entries.map(([u,acc])=>`<tr><td><div style="display:flex;align-items:center;gap:10px"><div class="user-avatar">${acc.name[0].toUpperCase()}</div><div><div style="font-weight:500;color:var(--white)">${esc(acc.name)}</div><div style="font-size:11px;color:var(--muted)">${u}</div></div></div></td><td><code style="font-family:JetBrains Mono,monospace;font-size:12px;color:var(--muted)">${esc(u)}</code></td><td>${esc(acc.dept||'—')}</td><td><span class="badge ${acc.active?'badge-green':'badge-red'}">${acc.active?'Actif':'Inactif'}</span></td><td><div style="display:flex;gap:8px"><button class="btn-sm btn-sm-blue" onclick="toggleUserStatus('${u}')">${acc.active?'Désactiver':'Activer'}</button><button class="btn-sm btn-sm-red" onclick="deleteUser('${u}')">Supprimer</button></div></td></tr>`).join('');
+}
+async function addUser(){
+  var name=document.getElementById('nu-name').value.trim(),username=document.getElementById('nu-username').value.trim(),password=document.getElementById('nu-password').value,dept=document.getElementById('nu-dept').value.trim(),errEl=document.getElementById('add-user-error');
+  if(!name||!username||!password){errEl.textContent='Champs obligatoires manquants.';errEl.classList.add('visible');return;}
+  if(ACCOUNTS[username]){errEl.textContent='Identifiant déjà utilisé.';errEl.classList.add('visible');return;}
+  ACCOUNTS[username]={password,role:'user',name,dept,active:true};
+  try{ await fbSet('accounts/'+username,ACCOUNTS[username]); }catch(e){}
+  closeModal('modal-add-user');renderUsersTable();refreshAdminDashboard();
+  ['nu-name','nu-username','nu-password','nu-dept'].forEach(id=>document.getElementById(id).value='');
+  errEl.classList.remove('visible');showToast('👤 '+name+' créé & synchronisé.','success');
+}
+async function toggleUserStatus(u){
+  ACCOUNTS[u].active=!ACCOUNTS[u].active;
+  try{ await fbSet('accounts/'+u+'/active',ACCOUNTS[u].active); }catch(e){}
+  renderUsersTable();showToast('Statut mis à jour.','success');
+}
+async function deleteUser(u){
+  if(!confirm('Supprimer "'+u+'" ?'))return;
+  delete ACCOUNTS[u];
+  try{ if(DB) await DB.ref('accounts/'+u).remove(); }catch(e){}
+  renderUsersTable();refreshAdminDashboard();showToast('Utilisateur supprimé.','');
+}
+
+// ══════════════════════════════════════════
+// DASHBOARD
+// ══════════════════════════════════════════
+function refreshAdminDashboard(){
+  var users=Object.keys(ACCOUNTS).filter(u=>u!=='admin').length;
+  var su=document.getElementById('stat-users');if(su)su.textContent=users;
+  var sa=document.getElementById('stat-analyses');if(sa)sa.textContent=STATE.analyses.length;
+  var sc=document.getElementById('stat-cv');if(sc)sc.textContent=STATE.totalCv;
+  var ub=document.getElementById('users-count-badge');if(ub)ub.textContent=users;
+  renderHistory();renderAllApiDisplays();
+}
+function renderHistory(){
+  var tbody=document.getElementById('history-tbody');if(!tbody)return;
+  if(!STATE.analyses.length){tbody.innerHTML='<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:32px">Aucune analyse.</td></tr>';return;}
+  tbody.innerHTML=[...STATE.analyses].reverse().slice(0,20).map(a=>`<tr><td><span style="font-family:JetBrains Mono,monospace;font-size:12px">${a.date}</span></td><td>${esc(a.user)}</td><td>${esc(a.job||'—')}</td><td><span class="badge badge-blue">${a.count} CV</span></td><td><span style="font-family:Playfair Display,serif;font-size:18px;color:var(--gold)">${a.maxScore}</span><span style="color:var(--muted);font-size:12px">/10</span></td></tr>`).join('');
+}
+
+// ══════════════════════════════════════════
+// BUILD ANALYZE PANEL
+// ══════════════════════════════════════════
+function buildAnalyzePanel(role){
+  var c=document.getElementById(role+'-analyze-container');if(!c)return;
+  var critHtml=role==='admin'
+    ?'<div class="panel"><div class="panel-title">⚙️ Critères</div><div class="crit-grid" id="analyze-crit-grid"></div><div class="separator"></div><div class="form-group"><label class="form-label">Critère personnalisé</label><div style="display:flex;gap:10px;align-items:center"><input class="form-input" type="text" id="analyze-custom-input" placeholder="Ex: Maîtrise Bloomberg" style="flex:1"><button class="btn-sm btn-sm-gold" style="padding:10px 18px" onclick="addCustomCriterion()">+ Ajouter</button></div><div id="custom-crit-grid" class="crit-grid" style="margin-top:12px"></div></div></div>'
+    :'<div class="panel"><div class="panel-title">📋 Critères actifs</div><div class="crit-grid" id="user-crit-display"></div></div>';
+  c.innerHTML=
+    '<div class="panel"><div class="panel-title">📁 Import des CV</div>'
+    +'<div class="drop-zone" id="'+role+'-drop"><input type="file" id="'+role+'-file-input" multiple accept=".pdf,.txt,.docx"><span class="dz-icon">📁</span><p class="dz-title">Glissez vos CV ici</p><p class="dz-sub">PDF · DOCX · TXT · Max 50</p></div>'
+    +'<div class="file-pills" id="'+role+'-file-pills"></div></div>'
+    +critHtml
+    +'<div id="'+role+'-progress-wrap" style="display:none"><div class="panel"><div class="panel-title">⏳ Analyse en cours…</div>'
+    +'<div class="progress-label"><span id="'+role+'-progress-text">Init…</span><span id="'+role+'-progress-count">0 / 0</span></div>'
+    +'<div class="progress-bar-wrap"><div class="progress-bar-fill" id="'+role+'-progress-bar" style="width:0%"></div></div>'
+    +'<div class="progress-log" id="'+role+'-log" style="margin-top:12px"></div>'
+    +'</div></div>'
+    +'<div id="'+role+'-hint-box" style="margin-bottom:12px"></div>'
+    +'<button class="btn-primary" style="max-width:280px" id="'+role+'-analyze-btn" onclick="startAnalysis(\''+role+'\')">🔍 Lancer l\'analyse</button>';
+  setupFileDrop(role);
+  if(role==='admin')renderInlineAdminCriteria();else renderUserCriteriaDisplay();
+}
+function renderInlineAdminCriteria(){
+  var grid=document.getElementById('analyze-crit-grid');if(!grid)return;
+  grid.innerHTML=DEFAULT_CRITERIA.map(c=>'<div class="crit-card '+(STATE.selectedCriteria.has(c.id)?'active':'')+'" data-cid="'+c.id+'"><div class="crit-check"></div><div><div class="crit-name">'+c.name+'</div><div class="crit-desc">'+c.desc+'</div></div></div>').join('');
+  grid.querySelectorAll('.crit-card').forEach(card=>card.addEventListener('click',function(){var id=card.getAttribute('data-cid');if(STATE.selectedCriteria.has(id)){STATE.selectedCriteria.delete(id);card.classList.remove('active');}else{STATE.selectedCriteria.add(id);card.classList.add('active');}}));
+  renderCustomCritGrid();
+}
+function addCustomCriterion(){var input=document.getElementById('analyze-custom-input');if(!input)return;var val=input.value.trim();if(!val||customCriteriaList.includes(val))return;customCriteriaList.push(val);input.value='';renderCustomCritGrid();showToast('✅ Critère ajouté.','success');}
+function removeCustomCriterion(val){customCriteriaList=customCriteriaList.filter(c=>c!==val);renderCustomCritGrid();}
+function renderCustomCritGrid(){var grid=document.getElementById('custom-crit-grid');if(!grid)return;grid.innerHTML=customCriteriaList.map(c=>'<div class="crit-card active"><div class="crit-check"></div><div style="flex:1"><div class="crit-name">'+esc(c)+'</div><div class="crit-desc">Critère personnalisé</div></div><span onclick="removeCustomCriterion(\''+esc(c)+'\')" style="cursor:pointer;color:var(--muted);font-size:18px;padding:0 4px">×</span></div>').join('');}
+document.addEventListener('keydown',e=>{if(e.key==='Enter'&&document.activeElement&&document.activeElement.id==='analyze-custom-input')addCustomCriterion();});
+function renderUserCriteriaDisplay(){var grid=document.getElementById('user-crit-display');if(!grid)return;var active=[...STATE.selectedCriteria].map(id=>DEFAULT_CRITERIA.find(c=>c.id===id)).filter(Boolean);var custom=(CRITERIA_CONFIG.custom||'').split('\n').map(s=>s.trim()).filter(Boolean);grid.innerHTML=[...active.map(c=>'<div class="crit-card active" style="cursor:default"><div class="crit-check"></div><div><div class="crit-name">'+c.name+'</div><div class="crit-desc">'+c.desc+'</div></div></div>'),...custom.map(l=>'<div class="crit-card active" style="cursor:default"><div class="crit-check"></div><div><div class="crit-name">'+esc(l)+'</div></div></div>')].join('')||'<div style="color:var(--muted);font-size:13px">Aucun critère configuré.</div>';}
+
+// ══════════════════════════════════════════
+// FILES
+// ══════════════════════════════════════════
+function setupFileDrop(role){
+  var zone=document.getElementById(role+'-drop'),input=document.getElementById(role+'-file-input');if(!zone||!input)return;
+  zone.addEventListener('dragover',e=>{e.preventDefault();zone.classList.add('drag-over');});
+  zone.addEventListener('dragleave',()=>zone.classList.remove('drag-over'));
+  zone.addEventListener('drop',e=>{e.preventDefault();zone.classList.remove('drag-over');addFiles([...e.dataTransfer.files],role);});
+  input.addEventListener('change',()=>{addFiles([...input.files],role);input.value='';});
+}
+function addFiles(files,role){
+  var added=0,skipped=0;
+  files.forEach(f=>{
+    if(STATE.uploadedFiles.length>=50){skipped++;return;}
+    var ext=f.name.split('.').pop().toLowerCase();
+    if(!['pdf','txt','docx'].includes(ext)){showToast('Format non supporté : '+f.name,'error');return;}
+    if(!STATE.uploadedFiles.find(x=>x.name===f.name)){STATE.uploadedFiles.push(f);added++;}
+  });
+  if(skipped>0)showToast('⚠ Limite 50 — '+skipped+' ignoré(s).','error');
+  else if(added>0)showToast('✓ '+added+' CV ajouté(s) — Total : '+STATE.uploadedFiles.length+'/50','success');
+  renderFilePills(role);
+}
+function removeFile(name,role){STATE.uploadedFiles=STATE.uploadedFiles.filter(f=>f.name!==name);renderFilePills(role);}
+function renderFilePills(role){
+  var pills=document.getElementById(role+'-file-pills');if(!pills)return;
+  pills.innerHTML=STATE.uploadedFiles.map(f=>{var ext=f.name.split('.').pop().toLowerCase();var icon=ext==='pdf'?'📄':ext==='docx'?'📝':'📃';return '<div class="file-pill">'+icon+' <span>'+esc(f.name)+'</span><span style="color:var(--muted);font-family:JetBrains Mono,monospace;font-size:10px">'+(f.size/1024).toFixed(0)+'Ko</span><span class="fp-remove" onclick="removeFile(\''+esc(f.name)+'\',\''+role+'\')">×</span></div>';}).join('');
+}
+
+// ══════════════════════════════════════════
+// PDF EXTRACTION — 5 méthodes en cascade
+// Garantit la lecture de TOUS les PDFs
+// ══════════════════════════════════════════
+async function extractPdfText(file){
+  var methods = [
+    () => extractPdf_pdfjs(file),
+    () => extractPdf_textStream(file),
+    () => extractPdf_utf8(file),
+    () => extractPdf_latin1(file),
+    () => extractPdf_byteScan(file),
+  ];
+  for(var m=0; m<methods.length; m++){
+    try{
+      var result = await methods[m]();
+      var cleaned = cleanPdfText(result);
+      if(cleaned && cleaned.length >= 80 && !cleaned.startsWith('[') && hasRealWords(cleaned)){
+        return cleaned;
+      }
+    }catch(e){}
+  }
+  // Last resort: return filename-based placeholder so AI can still attempt
+  return '[Contenu PDF non extractible pour : '+file.name+' — PDF probablement scanné sans OCR. Taille : '+(file.size/1024).toFixed(0)+'Ko]';
+}
+
+// Méthode 1 : PDF.js (meilleure, gère tous les PDFs numériques)
+async function extractPdf_pdfjs(file){
+  if(typeof pdfjsLib==='undefined') throw new Error('pdf.js indisponible');
+  var buf = await file.arrayBuffer();
+  var pdf = await pdfjsLib.getDocument({
+    data: buf,
+    verbosity: 0,
+    useWorkerFetch: false,
+    isEvalSupported: false,
+  }).promise;
+  var pages = [];
+  for(var p=1; p<=Math.min(pdf.numPages, 20); p++){
+    var page = await pdf.getPage(p);
+    var content = await page.getTextContent({normalizeWhitespace: true});
+    // Reconstruct lines by grouping items with similar Y position
+    var lines = {}, lastY = null;
+    content.items.forEach(function(item){
+      var y = Math.round(item.transform[5]);
+      if(!lines[y]) lines[y] = [];
+      lines[y].push(item.str);
+    });
+    var pageText = Object.keys(lines).sort((a,b)=>b-a).map(y=>lines[y].join(' ')).join('\n');
+    pages.push(pageText);
+  }
+  var text = pages.join('\n\n');
+  if(text.trim().length < 50) throw new Error('pdf.js: texte insuffisant');
+  return text;
+}
+
+// Méthode 2 : Extraction des streams de texte PDF (BT...ET blocks)
+async function extractPdf_textStream(file){
+  var buf = await file.arrayBuffer();
+  var bytes = new Uint8Array(buf);
+  var raw = '';
+  // Decode with latin-1 to preserve all bytes
+  for(var i=0; i<bytes.length; i++) raw += String.fromCharCode(bytes[i]);
+  
+  var words = [];
+  // Extract text between BT (Begin Text) and ET (End Text) markers
+  var btEt = raw.match(/BT[\s\S]*?ET/g) || [];
+  btEt.forEach(function(block){
+    // Extract strings in parentheses: (text)
+    var parens = block.match(/\(([^)]+)\)/g) || [];
+    parens.forEach(function(p){
+      var t = p.slice(1,-1)
+        .replace(/\\n/g,' ').replace(/\\r/g,' ').replace(/\\t/g,' ')
+        .replace(/\\\(/g,'(').replace(/\\\)/g,')')
+        .replace(/\\\\/g,'\\');
+      if(t.trim().length > 1) words.push(t);
+    });
+    // Extract hex strings: <hexdata>
+    var hexes = block.match(/<([0-9A-Fa-f]+)>/g) || [];
+    hexes.forEach(function(h){
+      var hex = h.slice(1,-1);
+      var str = '';
+      for(var j=0; j<hex.length; j+=2){
+        var code = parseInt(hex.substr(j,2),16);
+        if(code > 31 && code < 127) str += String.fromCharCode(code);
+        else if(code > 127) str += String.fromCharCode(code); // keep accented chars
+      }
+      if(str.trim().length > 1) words.push(str);
+    });
+  });
+  var result = words.join(' ').replace(/\s{3,}/g,' ').trim();
+  if(result.length < 80) throw new Error('textStream: résultat insuffisant');
+  return result;
+}
+
+// Méthode 3 : Lecture texte UTF-8
+async function extractPdf_utf8(file){
+  var text = await new Promise((res,rej)=>{
+    var r=new FileReader();
+    r.onload=e=>res(e.target.result||'');
+    r.onerror=()=>rej(new Error('UTF8 read failed'));
+    r.readAsText(file,'UTF-8');
+  });
+  // Remove binary stream blocks and keep printable text
+  var cleaned = text
+    .replace(/stream[\s\S]*?endstream/gi, ' ')
+    .replace(/<[0-9A-Fa-f]{4,}>/g, ' ')
+    .replace(/[^\x20-\x7EÀ-ÿ\n\r\t]/g, ' ')
+    .replace(/\s{4,}/g,' ')
+    .trim();
+  var lines = cleaned.split(/[\n\r]+/).filter(l=>l.trim().length>3 && /[a-zA-ZÀ-ÿ]{2,}/.test(l));
+  var result = lines.join('\n').slice(0,12000);
+  if(result.length < 80) throw new Error('UTF8: résultat insuffisant');
+  return result;
+}
+
+// Méthode 4 : Lecture latin-1
+async function extractPdf_latin1(file){
+  var text = await new Promise((res,rej)=>{
+    var r=new FileReader();
+    r.onload=e=>res(e.target.result||'');
+    r.onerror=()=>rej(new Error('Latin1 read failed'));
+    r.readAsText(file,'ISO-8859-1');
+  });
+  var cleaned = text
+    .replace(/stream[\s\S]*?endstream/gi,' ')
+    .replace(/[^\x20-\xFE\n\r]/g,' ')
+    .replace(/\s{4,}/g,' ')
+    .trim();
+  var lines = cleaned.split(/[\n\r]+/).filter(l=>l.trim().length>3 && /[a-zA-ZÀ-ÿ]{2,}/.test(l));
+  var result = lines.join('\n').slice(0,12000);
+  if(result.length < 80) throw new Error('Latin1: résultat insuffisant');
+  return result;
+}
+
+// Méthode 5 : Scan octet par octet (dernier recours)
+async function extractPdf_byteScan(file){
+  var buf = await file.arrayBuffer();
+  var bytes = new Uint8Array(buf);
+  var words=[], word='', wordStart=false;
+  for(var i=0; i<bytes.length; i++){
+    var b=bytes[i];
+    var printable=(b>=32&&b<=126)||(b>=160&&b<=255);
+    if(printable){ word+=String.fromCharCode(b); wordStart=true; }
+    else{
+      if(wordStart && word.trim().length>3 && /[a-zA-ZÀ-ÿ]{2,}/.test(word)){
+        words.push(word.trim());
+      }
+      word=''; wordStart=false;
+    }
+  }
+  var result = words.join(' ').replace(/\s{3,}/g,' ').slice(0,12000);
+  if(result.length < 80) throw new Error('ByteScan: résultat insuffisant');
+  return result;
+}
+
+function cleanPdfText(text){
+  if(!text) return '';
+  return text
+    .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g,'') // remove control chars
+    .replace(/(.)\1{8,}/g,'$1') // remove long char repetitions (artifacts)
+    .replace(/\s{4,}/g,' ')
+    .replace(/\n{4,}/g,'\n\n')
+    .trim()
+    .slice(0,12000);
+}
+
+function hasRealWords(text){
+  // Check if text contains real words (at least 5 words of 3+ letters)
+  var words = text.match(/[a-zA-ZÀ-ÿ]{3,}/g) || [];
+  return words.length >= 5;
+}
+async function extractDocxText(file){
+  try{
+    var buf=await file.arrayBuffer();var bytes=new Uint8Array(buf);var decoder=new TextDecoder('utf-8',{fatal:false});var raw=decoder.decode(bytes);
+    var s=raw.indexOf('<w:body'),e=raw.lastIndexOf('</w:body>');
+    if(s!==-1&&e!==-1){return raw.slice(s,e+9).replace(/<w:p[ >]/g,'\n').replace(/<w:br[^>]*>/g,'\n').replace(/<w:tab[^>]*>/g,' ').replace(/<[^>]+>/g,'').replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&quot;/g,'"').replace(/[ \t]+/g,' ').replace(/\n{3,}/g,'\n\n').trim().slice(0,10000);}
+    var text='';for(var i=0;i<raw.length;i++){var c=raw.charCodeAt(i);if(c>=32&&c<=126||c===10)text+=raw[i];}
+    return text.replace(/\s{3,}/g,' ').trim().slice(0,8000)||'[DOCX vide]';
+  }catch(e){return '[Erreur DOCX]';}
+}
+
+// ══════════════════════════════════════════
+// ANALYSIS ENGINE
+// ══════════════════════════════════════════
+function sleep(ms){return new Promise(r=>setTimeout(r,ms));}
+function logLine(logEl,msg,type){if(!logEl)return;var span=document.createElement('span');span.className='log-line log-'+(type||'info');span.textContent=msg;logEl.appendChild(span);logEl.scrollTop=logEl.scrollHeight;}
+function setProgress(role,cur,tot,label){var pct=tot>0?Math.round(cur/tot*100):0;var b=document.getElementById(role+'-progress-bar'),t=document.getElementById(role+'-progress-text'),c=document.getElementById(role+'-progress-count');if(b)b.style.width=pct+'%';if(t)t.textContent=label||'…';if(c)c.textContent=cur+' / '+tot;}
+
+async function startAnalysis(role){
+  var btn=document.getElementById(role+'-analyze-btn');
+  var hintBox=document.getElementById(role+'-hint-box');
+  if(hintBox)hintBox.innerHTML='';
+
+  if(!STATE.apiKey&&!STATE.groqKey&&!STATE.mistralKey){if(hintBox)hintBox.innerHTML='<div class="err-box">❌ Aucune clé API. Configurez-en une dans <strong>Clés API</strong>.</div>';return;}
+  if(!STATE.uploadedFiles.length){showToast('Importez au moins un CV.','error');return;}
+  if(!JOB.active||!JOB.title){if(hintBox)hintBox.innerHTML='<div class="warn-box">⚠ Activez un poste dans <strong>Critères → Postes à pourvoir</strong>.</div>';showToast('Sélectionnez un poste actif.','error');return;}
+
+  // Critères prédéfinis sélectionnés
+  var criteria = Array.from(STATE.selectedCriteria)
+    .map(function(id){ return DEFAULT_CRITERIA.find(function(c){ return c.id===id; }); })
+    .filter(Boolean).map(function(c){ return c.name; });
+
+  // Critères personnalisés — toujours inclure ceux sauvegardés dans CRITERIA_CONFIG
+  var savedCustom = (CRITERIA_CONFIG.custom||'').split('\n').map(function(t){ return t.trim(); }).filter(Boolean);
+  savedCustom.forEach(function(l){ if(!criteria.includes(l)) criteria.push(l); });
+
+  // Pour l'admin : inclure aussi les critères ajoutés en session
+  if(role==='admin'){
+    customCriteriaList.forEach(function(l){ if(!criteria.includes(l)) criteria.push(l); });
+  }
+
+  if(!criteria.length){showToast('Sélectionnez au moins un critère.','error');return;}
+
+  if(btn){btn.disabled=true;btn.innerHTML='<span class="spinner"></span> Analyse en cours…';}
+  var progWrap=document.getElementById(role+'-progress-wrap'),logEl=document.getElementById(role+'-log');
+  if(progWrap)progWrap.style.display='block';if(logEl)logEl.innerHTML='';
+  STATE.results=[];
+
+  // Phase 1: Extract text
+  logLine(logEl,'═══ Extraction texte ═══','info');
+  setProgress(role,0,STATE.uploadedFiles.length,'Extraction…');
+  var cvFiles=[];
+  for(var i=0;i<STATE.uploadedFiles.length;i++){
+    var file=STATE.uploadedFiles[i];var ext=file.name.split('.').pop().toLowerCase();
+    logLine(logEl,'['+( i+1)+'/'+STATE.uploadedFiles.length+'] '+file.name+'…','info');
+    try{
+      var text='';
+      if(ext==='pdf'){
+        text=await extractPdfText(file);
+        var methodUsed = text.startsWith('[Contenu PDF non') ? '⚠ non lisible' : '✅ extrait';
+        logLine(logEl,'  '+methodUsed+' — '+text.length+' chars','ok');
+        if(text.startsWith('[Contenu PDF non')){
+          logLine(logEl,'  ⚠ PDF scanné ou protégé — l\'IA tentera quand même l\'analyse','warn');
+        }
+      }
+      else if(ext==='docx'){text=await extractDocxText(file);logLine(logEl,'  ✅ DOCX extrait — '+text.length+' chars','ok');}
+      else{text=await new Promise((res,rej)=>{var r=new FileReader();r.onload=e=>res(e.target.result||'');r.onerror=()=>rej(new Error('fail'));r.readAsText(file,'UTF-8');});logLine(logEl,'  ✅ TXT chargé — '+text.length+' chars','ok');}
+      logLine(logEl,'  Aperçu : "'+text.replace(/\n/g,' ').slice(0,100)+(text.length>100?'…':'')+'"','info');
+      cvFiles.push({name:file.name,type:'text',data:text,size:file.size});
+    }catch(e){logLine(logEl,'  ❌ '+e.message,'err');}
+    setProgress(role,i+1,STATE.uploadedFiles.length,'Extrait : '+file.name);
+  }
+  if(!cvFiles.length){logLine(logEl,'❌ Aucun fichier lisible.','err');if(btn){btn.disabled=false;btn.innerHTML='🔍 Lancer l\'analyse';}return;}
+
+  // Phase 2: AI analysis
+  logLine(logEl,'','info');
+  logLine(logEl,'═══ Analyse IA — '+cvFiles.length+' CV ═══','info');
+  logLine(logEl,'📌 Poste : '+JOB.title,'ok');
+  logLine(logEl,'📋 Critères ('+criteria.length+') : '+criteria.join(' · '),'info');
+  if(JOB.description) logLine(logEl,'📄 Fiche de poste : '+(JOB.description.slice(0,80))+'…','info');
+  var allResults=[];
+  for(var j=0;j<cvFiles.length;j++){
+    var cv=cvFiles[j];setProgress(role,j,cvFiles.length,'Analyse : '+cv.name);
+    logLine(logEl,'['+( j+1)+'/'+cvFiles.length+'] '+cv.name,'info');
+    try{var result=await analyzeOneCv(cv,criteria,logEl);allResults.push(result);logLine(logEl,'  ✅ '+result.name+' — '+result.totalScore+'/10 — '+result.recommendation,'ok');}
+    catch(err){logLine(logEl,'  ❌ '+err.message.slice(0,80),'err');allResults.push({name:cv.name.replace(/\.[^.]+$/,''),filename:cv.name,currentPosition:'—',education:'—',yearsExp:'—',totalScore:0,criteriaScores:{},strengths:[],weaknesses:['Analyse échouée : '+err.message.slice(0,60)],keySkills:[],summary:'Analyse échouée.',recommendation:'Non retenu',recommendationReason:'Erreur technique.'});}
+    setProgress(role,j+1,cvFiles.length,'Analysé : '+cv.name);
+    if(j<cvFiles.length-1)await sleep(1000);
+  }
+
+  allResults.sort((a,b)=>b.totalScore-a.totalScore);STATE.results=allResults;
+  logLine(logEl,'','info');logLine(logEl,'═══ ✅ TERMINÉ — '+allResults.length+' candidat(s) ═══','ok');
+  if(allResults.length>0)logLine(logEl,'🏆 N°1 : '+allResults[0].name+' — '+allResults[0].totalScore+'/10','ok');
+  setProgress(role,cvFiles.length,cvFiles.length,'✅ Terminé !');
+
+  // Save to Firebase
+  setSyncStatus('syncing','Sauvegarde…');
+  try{
+    STATE.totalCv+=allResults.length;
+    var entry={date:new Date().toLocaleDateString('fr-FR')+' '+new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}),timestamp:Date.now(),user:STATE.currentUser,job:JOB.title||'—',count:allResults.length,maxScore:allResults.length>0?allResults[0].totalScore:0};
+    if(DB){ await DB.ref('history').push(entry); await fbSet('stats/totalCv',STATE.totalCv); logLine(logEl,'  ☁️ Historique sauvegardé sur Firebase','ok'); }
+    else { STATE.analyses.push(entry); logLine(logEl,'  💾 Historique sauvegardé localement (Firebase non connecté)','warn'); }
+    setSyncStatus('ok','Synchronisé');
+  }catch(e){setSyncStatus('error','Erreur sync');logLine(logEl,'  ⚠ Erreur sauvegarde Firebase : '+e.message,'warn');}
+
+  if(role==='admin')refreshAdminDashboard();
+  setTimeout(()=>{
+    if(role==='admin')renderResults('admin-analyze-container',criteria,role);
+    else{renderResults('user-results-container',criteria,role);userTab('results',document.querySelector('#page-user .nav-item:nth-child(2)'));}
+    showToast('✅ '+allResults.length+' CV analysés','success');
+  },300);
+  if(btn){btn.disabled=false;btn.innerHTML='🔍 Relancer l\'analyse';}
+}
+
+async function analyzeOneCv(cv, criteria, logEl){
+
+  // ── 1. Fiche de poste complète ──
+  var jobSection = '';
+  if(JOB.active && JOB.title){
+    jobSection = '\n\n╔══════════════════════════════════════╗\n'
+               + '  FICHE DE POSTE — BASE D\'ÉVALUATION\n'
+               + '╚══════════════════════════════════════╝\n'
+               + 'Intitulé : ' + JOB.title + '\n';
+    if(JOB.description && JOB.description.trim()){
+      jobSection += 'Description complète :\n' + JOB.description.trim().slice(0,800) + '\n';
+    }
+    jobSection += '\n⚠ IMPORTANT : Toute ton évaluation doit être basée sur cette fiche de poste. '
+               + 'Chaque critère doit être noté en fonction de l\'adéquation du candidat avec CE poste spécifique.\n';
+  }
+
+  // ── 2. Critères détaillés avec descriptions ──
+  var critLines = criteria.map(function(c){
+    var obj  = DEFAULT_CRITERIA.find(function(d){ return d.name===c; });
+    var xtra = obj ? (criteriaDescriptions[obj.id]||'') : '';
+    var line = '• ' + c;
+    if(xtra) line += ' — ' + xtra;
+    return line;
+  }).join('\n');
+
+  // Critères personnalisés (supplémentaires)
+  var customCriteria = (CRITERIA_CONFIG.custom||'').split('\n').map(function(s){ return s.trim(); }).filter(Boolean);
+
+  var critSchema = criteria.map(function(c){ return '"'+c+'": 5'; }).join(', ');
+
+  // ── 3. Prompt complet et robuste ──
+  var prompt =
+    'Tu es un expert recruteur RH senior de la BVMAC (Bourse des Valeurs Mobilières d\'Afrique Centrale).\n'
+  + 'Ta mission est d\'analyser ce CV et d\'évaluer le candidat UNIQUEMENT par rapport à la fiche de poste ci-dessous.\n'
+  + jobSection
+  + '\n╔══════════════════════════════════════╗\n'
+  + '  CRITÈRES D\'ÉVALUATION (notes de 0 à 10)\n'
+  + '╚══════════════════════════════════════╝\n'
+  + 'Note chaque critère de 0 à 10 en te basant STRICTEMENT sur le CV ET la fiche de poste :\n'
+  + critLines + '\n'
+  + (customCriteria.length > 0
+    ? '\nCritères supplémentaires (à évaluer également) :\n' + customCriteria.map(function(c){ return '• '+c; }).join('\n') + '\n'
+    : '')
+  + '\n╔══════════════════════════════════════╗\n'
+  + '  CV À ANALYSER\n'
+  + '╚══════════════════════════════════════╝\n'
+  + cv.data.slice(0, 9000)
+  + '\n\n╔══════════════════════════════════════╗\n'
+  + '  INSTRUCTIONS DE RÉPONSE\n'
+  + '╚══════════════════════════════════════╝\n'
+  + 'Réponds UNIQUEMENT avec un objet JSON valide (sans balises markdown, sans texte avant ou après) :\n'
+  + '{\n'
+  + '  "name": "Prénom et Nom complet du candidat",\n'
+  + '  "filename": "' + cv.name + '",\n'
+  + '  "currentPosition": "Poste ou titre actuel",\n'
+  + '  "education": "Diplôme le plus élevé et établissement",\n'
+  + '  "yearsExp": "Nombre d\'années d\'expérience",\n'
+  + (JOB.active ? '  "jobFit": "En 1-2 phrases : pourquoi ce candidat correspond ou non au poste",\n' : '')
+  + '  "totalScore": 7.5,\n'
+  + '  "criteriaScores": {' + critSchema + '},\n'
+  + '  "strengths": ["Point fort 1 lié au poste", "Point fort 2", "Point fort 3"],\n'
+  + '  "weaknesses": ["Lacune 1 par rapport au poste", "Lacune 2"],\n'
+  + '  "keySkills": ["Compétence clé 1", "Compétence clé 2", "Compétence clé 3"],\n'
+  + '  "summary": "Synthèse de 3-4 phrases sur l\'adéquation du profil avec le poste.",\n'
+  + '  "recommendation": "À retenir",\n'
+  + '  "recommendationReason": "Justification claire de la recommandation par rapport au poste."\n'
+  + '}\n\n'
+  + 'RÈGLES ABSOLUES :\n'
+  + '1. recommendation = EXACTEMENT "À retenir" OU "À considérer" OU "Non retenu"\n'
+  + '2. Tous les scores dans criteriaScores = nombres entre 0 et 10 (jamais tous à 0 sauf CV vide)\n'
+  + '3. totalScore = moyenne pondérée des criteriaScores\n'
+  + '4. Réponds UNIQUEMENT avec le JSON, rien d\'autre\n'
+  + '5. Base TOUJOURS ton évaluation sur la fiche de poste fournie';
+
+  var raw = await callAI(prompt, logEl);
+  logLine(logEl, '  Réponse reçue : ' + raw.length + ' caractères', 'info');
+
+  var parsed = robustParse(raw, logEl);
+  if(!parsed || !parsed.length) throw new Error('JSON invalide. Début : ' + raw.slice(0,100));
+
+  var r = parsed[0];
+  r.filename    = r.filename    || cv.name;
+  r.strengths   = Array.isArray(r.strengths)  ? r.strengths  : [];
+  r.weaknesses  = Array.isArray(r.weaknesses) ? r.weaknesses : [];
+  r.keySkills   = Array.isArray(r.keySkills)  ? r.keySkills  : [];
+  r.totalScore  = parseFloat(String(r.totalScore||0).replace(',','.')) || 0;
+  r.criteriaScores = r.criteriaScores || {};
+  Object.keys(r.criteriaScores).forEach(function(k){
+    r.criteriaScores[k] = parseFloat(String(r.criteriaScores[k]||0).replace(',','.')) || 0;
+  });
+  // Recalcul du totalScore si manquant
+  if(r.totalScore === 0 && Object.keys(r.criteriaScores).length > 0){
+    var vals = Object.values(r.criteriaScores);
+    r.totalScore = parseFloat((vals.reduce(function(a,b){ return a+b; }, 0) / vals.length).toFixed(1));
+  }
+  return r;
+}
+
+async function callAI(prompt,logEl){
+  // Ordre : Groq d'abord (plus fiable pour texte extrait), puis MADJINGAYE, puis Mistral
+  var apis=[];
+  if(STATE.groqKey)   apis.push({name:'Groq',       key:STATE.groqKey,    type:'groq'});
+  if(STATE.apiKey)    apis.push({name:'MADJINGAYE',  key:STATE.apiKey,     type:'gemini'});
+  if(STATE.mistralKey)apis.push({name:'Mistral',     key:STATE.mistralKey, type:'mistral'});
+  if(!apis.length)throw new Error('Aucune clé API configurée.');
+  var lastErr=null;
+  for(var i=0;i<apis.length;i++){
+    var api=apis[i];
+    try{
+      if(i>0)logLine(logEl,'  🔄 → '+api.name,'warn');else logLine(logEl,'  📡 → '+api.name,'info');
+      if(api.type==='gemini'){
+        var r=await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key='+api.key,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({contents:[{parts:[{text:prompt}]}],generationConfig:{maxOutputTokens:2048,temperature:0.1}})});
+        if(!r.ok){var ed=await r.json().catch(()=>({}));throw new Error((ed.error&&ed.error.message)||'HTTP '+r.status);}
+        var d=await r.json();var raw=(d.candidates&&d.candidates[0]&&d.candidates[0].content&&d.candidates[0].content.parts&&d.candidates[0].content.parts[0]&&d.candidates[0].content.parts[0].text)||'';
+        if(!raw)throw new Error('Réponse vide');return raw;
+      }
+      if(api.type==='groq'){
+        var r2=await fetch('https://api.groq.com/openai/v1/chat/completions',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+api.key},body:JSON.stringify({model:'llama-3.3-70b-versatile',messages:[{role:'user',content:prompt}],temperature:0.1,max_tokens:4096})});
+        if(!r2.ok){var ed2=await r2.json().catch(()=>({}));throw new Error((ed2.error&&ed2.error.message)||'HTTP '+r2.status);}
+        var d2=await r2.json();var raw2=(d2.choices&&d2.choices[0]&&d2.choices[0].message&&d2.choices[0].message.content)||'';
+        if(!raw2)throw new Error('Réponse vide');return raw2;
+      }
+      if(api.type==='mistral'){
+        var r3=await fetch('https://api.mistral.ai/v1/chat/completions',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+api.key},body:JSON.stringify({model:'mistral-small-latest',messages:[{role:'user',content:prompt}],temperature:0.1,max_tokens:4096})});
+        if(!r3.ok){var ed3=await r3.json().catch(()=>({}));throw new Error((ed3.error&&ed3.error.message)||'HTTP '+r3.status);}
+        var d3=await r3.json();var raw3=(d3.choices&&d3.choices[0]&&d3.choices[0].message&&d3.choices[0].message.content)||'';
+        if(!raw3)throw new Error('Réponse vide');return raw3;
+      }
+    }catch(err){lastErr=err;logLine(logEl,'  ⚠ '+api.name+' : '+err.message.slice(0,60)+(i<apis.length-1?' → suivant':''),'warn');if(i<apis.length-1)await sleep(600);}
+  }
+  throw new Error('Toutes APIs échouées. '+(lastErr?lastErr.message.slice(0,60):''));
+}
+
+function robustParse(raw,logEl){
+  if(!raw||!raw.trim())return null;
+  var text=raw.replace(/^```json\s*/im,'').replace(/^```\s*/im,'').replace(/```\s*$/im,'').trim();
+  var aS=text.indexOf('['),aE=text.lastIndexOf(']');if(aS!==-1&&aE>aS){try{return JSON.parse(text.slice(aS,aE+1));}catch(e){}}
+  var oS=text.indexOf('{'),oE=text.lastIndexOf('}');if(oS!==-1&&oE>oS){try{return [JSON.parse(text.slice(oS,oE+1))];}catch(e){}}
+  if(logEl)logLine(logEl,'  ⚠ Réparation JSON…','warn');
+  var results=[],i=0;
+  while(i<text.length){var os=text.indexOf('{',i);if(os===-1)break;var depth=0,inStr=false,esc_=false,oe=-1;for(var j=os;j<text.length;j++){var c=text[j];if(esc_){esc_=false;continue;}if(c==='\\'){esc_=true;continue;}if(c==='"'){inStr=!inStr;continue;}if(inStr)continue;if(c==='{')depth++;if(c==='}'){depth--;if(depth===0){oe=j;break;}}}if(oe===-1)break;try{var obj=JSON.parse(text.slice(os,oe+1));obj.totalScore=parseFloat(String(obj.totalScore||0).replace(',','.'))||0;if(obj.criteriaScores)Object.keys(obj.criteriaScores).forEach(k=>{obj.criteriaScores[k]=parseFloat(String(obj.criteriaScores[k]||0))||0;});obj.strengths=Array.isArray(obj.strengths)?obj.strengths:[];obj.weaknesses=Array.isArray(obj.weaknesses)?obj.weaknesses:[];obj.keySkills=Array.isArray(obj.keySkills)?obj.keySkills:[];results.push(obj);}catch(e){}i=oe+1;}
+  return results.length>0?results:null;
+}
+
+// ══════════════════════════════════════════
+// RESULTS
+// ══════════════════════════════════════════
+function renderResults(containerId,criteria,role){
+  var container=document.getElementById(containerId);if(!container)return;
+  var html=STATE.results.length===0?'<div class="panel" style="text-align:center;padding:60px"><div style="font-size:48px;margin-bottom:16px">😕</div><div style="color:var(--muted)">Aucun résultat.</div></div>':STATE.results.map((r,i)=>buildResultCard(r,i,criteria)).join('');
+  var exp=STATE.results.length>0?'<div class="panel" style="margin-top:24px"><div class="panel-title">⬇️ Exporter</div><div class="export-row"><button class="btn-export primary-export" onclick="exportProfessionalReport()">📋 Rapport PDF</button><button class="btn-export" onclick="exportCSV()">📊 CSV</button></div></div>':'';
+  var header='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:12px"><div style="font-family:Playfair Display,serif;font-size:26px;color:var(--white)">Classement des candidats</div><div style="font-family:JetBrains Mono,monospace;font-size:11px;color:var(--muted)">'+STATE.results.length+' CANDIDAT(S)</div></div>';
+  if(role==='admin'){var ex=container.querySelector('.results-block');if(ex)ex.remove();var div=document.createElement('div');div.className='results-block';div.innerHTML=header+html+exp;container.appendChild(div);}
+  else container.innerHTML=header+html+exp;
+}
+function toggleResultCard(i){var card=document.getElementById('rc-'+i);if(card)card.classList.toggle('open');}
+function buildResultCard(r,i,criteria){
+  var score=parseFloat(r.totalScore)||0;var rankClass=i===0?'gold':i===1?'silver':i===2?'bronze':'';var rankNum=i===0?'①':i===1?'②':i===2?'③':String(i+1);var barClass=score>=7?'high':score>=4?'mid':'low';var badgeCls=score>=7?'badge-green':score>=4?'badge-amber':'badge-red';var recClass=r.recommendation==='À retenir'?'rec-green':r.recommendation==='À considérer'?'rec-amber':'rec-red';var recIcon=r.recommendation==='À retenir'?'✅':r.recommendation==='À considérer'?'⚠️':'❌';
+  var critHtml='';if(r.criteriaScores)Object.keys(r.criteriaScores).forEach(k=>{var v=parseFloat(r.criteriaScores[k])||0;critHtml+='<div class="cs-item"><div class="cs-name">'+esc(k)+'</div><div class="cs-val">'+v+'<span>/10</span></div><div class="cs-bar-wrap"><div class="cs-bar-fill" style="width:'+(v*10)+'%"></div></div></div>';});
+  var strengths=(r.strengths||[]).map(s=>'<span class="tag-item tag-green">'+esc(s)+'</span>').join('');var weaknesses=(r.weaknesses||[]).map(w=>'<span class="tag-item tag-red">'+esc(w)+'</span>').join('');var skills=(r.keySkills||[]).map(s=>'<span class="tag-item tag-blue">'+esc(s)+'</span>').join('');
+  return '<div class="result-card" id="rc-'+i+'" style="animation-delay:'+(i*0.07)+'s"><div class="result-header" onclick="toggleResultCard('+i+')">'
+    +'<div class="rank-num '+rankClass+'">'+rankNum+'</div>'
+    +'<div class="rh-info"><div class="rh-name">'+esc(r.name||'Candidat inconnu')+'</div><div class="rh-file">📄 '+esc(r.filename||'')+(r.currentPosition&&r.currentPosition!=='—'?' · '+esc(r.currentPosition):'')+'</div></div>'
+    +'<div class="rh-score-wrap"><div class="rh-score">'+score.toFixed(1)+'<span>/10</span></div><div class="score-bar"><div class="score-fill '+barClass+'" style="width:'+(score*10)+'%"></div></div><span class="badge '+badgeCls+'">'+esc(r.recommendation||'')+'</span></div>'
+    +'<span class="rh-chevron">⌄</span></div>'
+    +'<div class="result-body">'
+    +'<div style="display:flex;flex-wrap:wrap;gap:24px;margin-bottom:20px"><div><div class="rb-section-title">Formation</div><div style="color:var(--white);font-size:14px">'+esc(r.education||'—')+'</div></div><div><div class="rb-section-title">Expérience</div><div style="color:var(--white);font-size:14px">'+esc(r.yearsExp||'—')+'</div></div></div>'
+    +(critHtml?'<div class="rb-section-title" style="margin-bottom:12px">Scores par critère</div><div class="crit-scores-grid">'+critHtml+'</div>':'')
+    +'<div class="rb-grid" style="margin:20px 0">'+(strengths?'<div><div class="rb-section-title">Points forts</div><div class="tag-cloud">'+strengths+'</div></div>':'')+(weaknesses?'<div><div class="rb-section-title">Points d\'attention</div><div class="tag-cloud">'+weaknesses+'</div></div>':'')+'</div>'
+    +(skills?'<div style="margin-bottom:20px"><div class="rb-section-title">Compétences clés</div><div class="tag-cloud">'+skills+'</div></div>':'')
+    +(r.jobFit?'<div class="rb-section-title" style="margin-top:16px">Adéquation avec le poste</div><div style="background:rgba(201,151,28,0.08);border-left:3px solid var(--gold);padding:12px 16px;border-radius:0 6px 6px 0;font-size:13px;color:var(--text);margin-bottom:16px">'+esc(r.jobFit)+'</div>':'')
+    +'<div class="rb-section-title">Analyse détaillée</div><div class="rb-summary">'+esc(r.summary||'')+'</div>'
+    +'<div style="margin-top:16px"><div class="rb-section-title">Décision</div><div class="'+recClass+' rec-pill">'+recIcon+' '+esc(r.recommendation||'')+'</div>'
+    +(r.recommendationReason?'<div style="font-size:12.5px;color:var(--muted);margin-top:8px;line-height:1.6">'+esc(r.recommendationReason)+'</div>':'')
+    +'</div></div></div>';
+}
+
+// ══════════════════════════════════════════
+// EXPORT
+// ══════════════════════════════════════════
+function exportCSV(){
+  if(!STATE.results.length)return;
+  var keys=Object.keys(STATE.results[0].criteriaScores||{});
+  var headers=['Rang','Nom','Fichier','Poste actuel','Formation','Expérience','Score global','Recommandation',...keys,'Points forts','Points d\'attention','Compétences','Analyse'];
+  var rows=STATE.results.map((r,i)=>[i+1,r.name,r.filename,r.currentPosition||'',r.education||'',r.yearsExp||'',r.totalScore,r.recommendation,...keys.map(k=>r.criteriaScores?.[k]??''),(r.strengths||[]).join(' | '),(r.weaknesses||[]).join(' | '),(r.keySkills||[]).join(' | '),r.summary||''].map(v=>`"${String(v).replace(/"/g,'""')}"`));
+  downloadBlob('\uFEFF',[headers,...rows].map(r=>r.join(',')).join('\n'),'BVMAC_CV_'+today()+'.csv','text/csv;charset=utf-8;');
+  showToast('📊 CSV exporté','success');
+}
+function exportProfessionalReport(){
+  if(!STATE.results.length)return;
+  var job=JOB.active?JOB.title:(CRITERIA_CONFIG.jobTitle||'Non défini');
+  var date=new Date().toLocaleDateString('fr-FR',{day:'2-digit',month:'long',year:'numeric'});
+  var analyst=STATE.currentUser||'Administrateur';
+  var total=STATE.results.length;
+  var retained=STATE.results.filter(r=>r.recommendation==='À retenir').length;
+  var consider=STATE.results.filter(r=>r.recommendation==='À considérer').length;
+  var rejected=total-retained-consider;
+  var avg=(STATE.results.reduce((s,r)=>s+(parseFloat(r.totalScore)||0),0)/total).toFixed(1);
+  var maxS=Math.max(...STATE.results.map(r=>parseFloat(r.totalScore)||0));
+  var criteria=Object.keys(STATE.results[0].criteriaScores||{});
+  var critAvgs={};criteria.forEach(c=>{critAvgs[c]=(STATE.results.reduce((s,r)=>s+(parseFloat((r.criteriaScores||{})[c])||0),0)/total).toFixed(1);});
+  var rows=STATE.results.map((r,i)=>{var sc=parseFloat(r.totalScore)||0;var col=sc>=7?'#1a6b3c':sc>=4?'#7a5c1e':'#8b2020';var bg=sc>=7?'#e8f5ee':sc>=4?'#fdf3e0':'#fce8e8';var cc=criteria.map(c=>'<td style="text-align:center;font-size:12px">'+((r.criteriaScores||{})[c]||'—')+'</td>').join('');return '<tr style="border-bottom:1px solid #e8e8e8"><td style="padding:10px 12px;font-weight:600">'+(i+1)+'</td><td style="padding:10px 12px"><div style="font-weight:700;color:#0f1f3a">'+(r.name||'—')+'</div><div style="font-size:11px;color:#888">'+(r.education||'')+' · '+(r.yearsExp||'')+'</div></td>'+cc+'<td style="text-align:center;padding:10px 12px"><span style="font-size:18px;font-weight:800;color:'+col+'">'+sc.toFixed(1)+'</span></td><td style="padding:10px 12px"><span style="background:'+bg+';color:'+col+';padding:3px 10px;border-radius:12px;font-size:11px;font-weight:600">'+(r.recommendation||'—')+'</span></td></tr>';}).join('');
+  var critHdrs=criteria.map(c=>'<th style="padding:10px 8px;font-size:10px;text-transform:uppercase;color:#666;text-align:center">'+c.slice(0,12)+'</th>').join('');
+  var profiles=STATE.results.map((r,i)=>{var sc=parseFloat(r.totalScore)||0;var col=sc>=7?'#1a6b3c':sc>=4?'#7a5c1e':'#8b2020';var bars=criteria.map(c=>{var v=parseFloat((r.criteriaScores||{})[c])||0;var bc=v>=7?'#1a6b3c':v>=4?'#b8933c':'#c85050';return '<div style="margin:6px 0"><div style="display:flex;justify-content:space-between;font-size:11px;color:#555;margin-bottom:3px"><span>'+c+'</span><span>'+v+'/10</span></div><div style="height:6px;background:#e8e8e8;border-radius:3px;overflow:hidden"><div style="width:'+(v*10)+'%;height:100%;background:'+bc+'"></div></div></div>';}).join('');var strs=(r.strengths||[]).map(s=>'<span style="background:#e8f5ee;color:#1a6b3c;border-radius:10px;padding:2px 8px;font-size:11px;margin:2px;display:inline-block">'+s+'</span>').join('');var wks=(r.weaknesses||[]).map(w=>'<span style="background:#fce8e8;color:#8b2020;border-radius:10px;padding:2px 8px;font-size:11px;margin:2px;display:inline-block">'+w+'</span>').join('');var sks=(r.keySkills||[]).map(s=>'<span style="background:#e8edf8;color:#1a3560;border-radius:10px;padding:2px 8px;font-size:11px;margin:2px;display:inline-block">'+s+'</span>').join('');return '<div style="page-break-inside:avoid;margin-bottom:28px;border:1px solid #ddd;border-radius:8px;overflow:hidden"><div style="background:#0f1f3a;color:white;padding:16px 20px;display:flex;align-items:center;justify-content:space-between"><div><div style="font-size:11px;color:#b8933c;letter-spacing:0.12em;text-transform:uppercase">Candidat #'+(i+1)+'</div><div style="font-size:18px;font-weight:700">'+(r.name||'—')+'</div><div style="font-size:12px;color:#8fa3be">'+(r.currentPosition||'')+' · '+(r.education||'')+'</div></div><div style="text-align:right"><div style="font-size:36px;font-weight:800;color:'+(sc>=7?'#5de0a0':sc>=4?'#e8b531':'#f08080')+'">'+sc.toFixed(1)+'</div><div style="font-size:10px;color:#8fa3be">/10</div><span style="background:rgba(255,255,255,0.1);color:white;padding:3px 10px;border-radius:12px;font-size:11px;display:inline-block;margin-top:6px">'+(r.recommendation||'')+'</span></div></div><div style="padding:20px;display:grid;grid-template-columns:1fr 1fr;gap:20px"><div>'+bars+'</div><div>'+(r.jobFit?'<div style="background:#fdf3e0;border-left:3px solid #b8933c;padding:10px 14px;border-radius:0 6px 6px 0;font-size:12px;color:#5c4010;margin-bottom:12px"><strong>Adéquation :</strong> '+r.jobFit+'</div>':'')+'<div style="font-size:12px;color:#333;line-height:1.7;margin-bottom:12px">'+(r.summary||'')+'</div>'+(strs?'<div style="margin-bottom:8px"><div style="font-size:10px;text-transform:uppercase;color:#888;margin-bottom:4px">Points forts</div>'+strs+'</div>':'')+(wks?'<div style="margin-bottom:8px"><div style="font-size:10px;text-transform:uppercase;color:#888;margin-bottom:4px">Points d\'attention</div>'+wks+'</div>':'')+(sks?'<div><div style="font-size:10px;text-transform:uppercase;color:#888;margin-bottom:4px">Compétences</div>'+sks+'</div>':'')+'</div></div></div>';}).join('');
+  var html='<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><title>Rapport BVMAC — '+job+'</title><style>body{font-family:Georgia,serif;color:#1a1a1a;margin:0;background:#fff}@media print{.no-print{display:none!important}body{-webkit-print-color-adjust:exact;print-color-adjust:exact}.pb{page-break-before:always}}</style></head><body>'
+    +'<div style="min-height:100vh;display:flex;flex-direction:column;justify-content:center;background:linear-gradient(160deg,#0b1f3a,#122848,#1a3560);color:white;padding:60px 80px;box-sizing:border-box"><div style="font-size:11px;letter-spacing:0.25em;text-transform:uppercase;color:#b8933c;margin-bottom:32px">Bourse des Valeurs Mobilières de l\'Afrique Centrale</div><div style="width:60px;height:3px;background:#b8933c;margin-bottom:40px"></div><div style="font-size:42px;font-weight:700;line-height:1.2;margin-bottom:16px">Rapport d\'analyse<br>des candidatures</div><div style="font-size:22px;color:#b8933c;margin-bottom:48px">'+job+'</div><div style="display:flex;gap:40px;font-size:13px;color:#8fa3be"><div><div style="color:#b8933c;font-size:10px;letter-spacing:0.15em;text-transform:uppercase;margin-bottom:6px">Date</div>'+date+'</div><div><div style="color:#b8933c;font-size:10px;letter-spacing:0.15em;text-transform:uppercase;margin-bottom:6px">Analyste</div>'+analyst+'</div><div><div style="color:#b8933c;font-size:10px;letter-spacing:0.15em;text-transform:uppercase;margin-bottom:6px">Candidats</div>'+total+'</div></div><div style="margin-top:auto;padding-top:60px;font-size:10px;color:rgba(255,255,255,0.3)">Document confidentiel · BVMAC · Direction du Développement</div></div>'
+    +'<div class="pb" style="padding:60px 80px;box-sizing:border-box"><h1 style="font-size:28px;color:#0f1f3a;margin:0 0 32px">Vue d\'ensemble</h1><div style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:32px"><div style="background:#f8f8f8;border-left:4px solid #0f1f3a;padding:20px;border-radius:0 8px 8px 0"><div style="font-size:36px;font-weight:800;color:#0f1f3a">'+total+'</div><div style="font-size:11px;color:#888;text-transform:uppercase">Candidats</div></div><div style="background:#f8f8f8;border-left:4px solid #1a6b3c;padding:20px;border-radius:0 8px 8px 0"><div style="font-size:36px;font-weight:800;color:#1a6b3c">'+retained+'</div><div style="font-size:11px;color:#888;text-transform:uppercase">À retenir</div></div><div style="background:#f8f8f8;border-left:4px solid #b8933c;padding:20px;border-radius:0 8px 8px 0"><div style="font-size:36px;font-weight:800;color:#b8933c">'+consider+'</div><div style="font-size:11px;color:#888;text-transform:uppercase">À considérer</div></div><div style="background:#f8f8f8;border-left:4px solid #8b2020;padding:20px;border-radius:0 8px 8px 0"><div style="font-size:36px;font-weight:800;color:#8b2020">'+rejected+'</div><div style="font-size:11px;color:#888;text-transform:uppercase">Non retenus</div></div></div>'
+    +'<table style="width:100%;font-size:13px;border-collapse:collapse;margin-bottom:32px"><tr><td style="padding:8px 0;color:#666;border-bottom:1px solid #eee">Score moyen</td><td style="font-weight:700;text-align:right;border-bottom:1px solid #eee">'+avg+'/10</td></tr><tr><td style="padding:8px 0;color:#666">Score max</td><td style="font-weight:700;text-align:right;color:#1a6b3c">'+maxS+'/10</td></tr></table>'
+    +(criteria.length?'<h3 style="font-size:13px;text-transform:uppercase;color:#888;margin-bottom:16px">Moyennes par critère</h3>'+criteria.map(c=>{var a=parseFloat(critAvgs[c]);var bc=a>=7?'#1a6b3c':a>=4?'#b8933c':'#c85050';return '<div style="display:flex;align-items:center;gap:12px;margin:8px 0"><div style="width:160px;font-size:12px;font-weight:500;color:#333">'+c+'</div><div style="flex:1;height:10px;background:#eee;border-radius:5px;overflow:hidden"><div style="width:'+(a*10)+'%;height:100%;background:'+bc+'"></div></div><div style="width:40px;text-align:right;font-size:13px;font-weight:700;color:'+bc+'">'+a+'</div></div>';}).join(''):'')+'</div>'
+    +'<div class="pb" style="padding:60px 80px;box-sizing:border-box"><h1 style="font-size:28px;color:#0f1f3a;margin:0 0 32px">Tableau comparatif</h1><table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr style="background:#0f1f3a;color:white"><th style="padding:12px;text-align:left">#</th><th style="padding:12px;text-align:left">Candidat</th>'+critHdrs+'<th style="padding:12px;text-align:center">Score</th><th style="padding:12px;text-align:left">Décision</th></tr></thead><tbody>'+rows+'</tbody></table></div>'
+    +'<div class="pb" style="padding:60px 80px;box-sizing:border-box"><h1 style="font-size:28px;color:#0f1f3a;margin:0 0 32px">Analyse détaillée</h1>'+profiles+'</div>'
+    +'<div style="background:#0f1f3a;color:#8fa3be;padding:24px 80px;font-size:11px;display:flex;justify-content:space-between"><span>BVMAC · Rapport confidentiel</span><span>'+date+'</span></div>'
+    +'<div class="no-print" style="position:fixed;bottom:24px;right:24px;display:flex;gap:10px"><button onclick="window.print()" style="background:#0f1f3a;color:white;border:none;padding:12px 24px;border-radius:8px;cursor:pointer;font-size:14px;font-weight:600">🖨️ Imprimer / PDF</button><button onclick="window.close()" style="background:#eee;color:#333;border:none;padding:12px 18px;border-radius:8px;cursor:pointer">✕</button></div>'
+    +'</body></html>';
+  var win=window.open('','_blank');if(win){win.document.write(html);win.document.close();}else showToast('Autorisez les popups.','error');
+}
+function downloadBlob(content,filename,type){try{var blob=new Blob([content],{type});var url=URL.createObjectURL(blob);var a=document.createElement('a');a.href=url;a.download=filename;document.body.appendChild(a);a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}catch(e){showToast('Erreur export.','error');}}
+function today(){return new Date().toISOString().slice(0,10);}
+
+// ══════════════════════════════════════════
+// JOBS — saved to Firebase
+// ══════════════════════════════════════════
+async function saveJobs(){
+  localStorage.setItem('bvmac_jobs_bk', JSON.stringify(JOBS));
+  try{ await fbSet('config/jobs', JOBS.length?JOBS:null); }catch(e){}
+}
+
+function selectJob(i){
+  var job=JOBS[i];if(!job)return;
+  if(JOB.active&&JOB.title===job.title){
+    JOB={active:false,title:'',description:'',fileBase64:null,fileName:''};
+    CRITERIA_CONFIG.jobTitle='';
+    localStorage.removeItem('bvmac_active_job');
+  } else {
+    JOB={active:true,title:job.title,description:job.description||'',fileBase64:null,fileName:''};
+    CRITERIA_CONFIG.jobTitle=job.title;
+    localStorage.setItem('bvmac_active_job', JSON.stringify({active:true,title:JOB.title,description:JOB.description,fileBase64:null,fileName:''}));
+  }
+  try{ fbSet('config/criteria/jobTitle',CRITERIA_CONFIG.jobTitle||''); }catch(e){}
+  renderJobsList();
+  showToast(JOB.active?'💼 Poste actif : '+JOB.title:'Poste désélectionné.',JOB.active?'success':'');
+}
+  var el=document.getElementById('jobs-list');if(!el)return;
+  if(!JOBS.length){el.innerHTML='<div style="color:var(--muted);font-size:13px;padding:12px 0">Aucun poste défini.</div>';return;}
+  el.innerHTML=JOBS.map((job,i)=>{var isActive=JOB.active&&JOB.title===job.title;return '<div class="job-list-item'+(isActive?' job-active':'')+'"><div style="display:flex;align-items:center;gap:12px;flex:1;cursor:pointer" onclick="selectJob('+i+')"><div style="width:18px;height:18px;border-radius:50%;border:2px solid '+(isActive?'var(--gold)':'var(--border)')+';display:flex;align-items:center;justify-content:center;flex-shrink:0">'+(isActive?'<div style="width:8px;height:8px;border-radius:50%;background:var(--gold)"></div>':'')+'</div><div><div style="font-weight:500;color:var(--white)">'+job.title+'</div><div style="font-size:11px;color:var(--muted)">'+(job.description?job.description.slice(0,60)+'…':'Fiche de poste')+'</div></div></div><div style="display:flex;gap:8px">'+(isActive?'<span class="badge badge-green">Actif</span>':'')+'<button class="btn-sm btn-sm-red" onclick="deleteJob('+i+')">✕</button></div></div>';}).join('');
+}
+function selectJob(i){
+  var job=JOBS[i];if(!job)return;
+  if(JOB.active&&JOB.title===job.title){JOB={active:false,title:'',description:'',fileBase64:null,fileName:''};CRITERIA_CONFIG.jobTitle='';}
+  else{JOB={active:true,title:job.title,description:job.description||'',fileBase64:null,fileName:''};CRITERIA_CONFIG.jobTitle=job.title;}
+  try{ fbSet('config/criteria/jobTitle',CRITERIA_CONFIG.jobTitle||''); }catch(e){}
+  renderJobsList();showToast(JOB.active?'💼 Poste actif : '+JOB.title:'Poste désélectionné.',JOB.active?'success':'');
+}
+async function deleteJob(i){
+  var job=JOBS[i];if(JOB.active&&JOB.title===job.title){JOB={active:false,title:'',description:'',fileBase64:null,fileName:''};CRITERIA_CONFIG.jobTitle='';}
+  JOBS.splice(i,1);await saveJobs();renderJobsList();showToast('Supprimé.','');
+}
+function openJobModal(){var title=document.getElementById('admin-job-title').value.trim();if(!title){showToast("Entrez l'intitulé.",'error');document.getElementById('admin-job-title').focus();return;}document.getElementById('job-modal-error').classList.remove('visible');openModal('modal-job');setupJobFileDrop();}
+function switchJobTab(tab){document.getElementById('job-input-text').style.display=tab==='text'?'block':'none';document.getElementById('job-input-file').style.display=tab==='file'?'block':'none';document.getElementById('job-tab-text').classList.toggle('active',tab==='text');document.getElementById('job-tab-file').classList.toggle('active',tab==='file');}
+function setupJobFileDrop(){var zone=document.getElementById('job-drop-zone'),input=document.getElementById('job-file-input');if(!zone||zone._initialized)return;zone._initialized=true;zone.addEventListener('dragover',e=>{e.preventDefault();zone.classList.add('drag-over');});zone.addEventListener('dragleave',()=>zone.classList.remove('drag-over'));zone.addEventListener('drop',e=>{e.preventDefault();zone.classList.remove('drag-over');if(e.dataTransfer.files[0])handleJobFile(e.dataTransfer.files[0]);});input.addEventListener('change',()=>{if(input.files[0])handleJobFile(input.files[0]);});}
+function handleJobFile(file){document.getElementById('job-file-label').textContent=file.name+' ('+(file.size/1024).toFixed(0)+' Ko)';document.getElementById('job-file-name').style.display='flex';var reader=new FileReader();reader.onload=e=>{JOB.fileBase64=e.target.result.split(',')[1];JOB.fileName=file.name;};reader.readAsDataURL(file);}
+function clearJobFile(){JOB.fileBase64=null;JOB.fileName='';document.getElementById('job-file-name').style.display='none';document.getElementById('job-file-input').value='';}
+async function validateJob(){
+  var title=document.getElementById('admin-job-title').value.trim();
+  var isText=document.getElementById('job-tab-text').classList.contains('active');
+  var desc=isText?document.getElementById('job-desc-text').value.trim():'';
+  var errEl=document.getElementById('job-modal-error');
+  if(!title){errEl.textContent='Intitulé requis.';errEl.classList.add('visible');return;}
+  if(!desc&&!JOB.fileBase64){errEl.textContent='Ajoutez une description ou un document.';errEl.classList.add('visible');return;}
+  if(JOBS.find(j=>j.title.toLowerCase()===title.toLowerCase())){errEl.textContent='Ce poste existe déjà.';errEl.classList.add('visible');return;}
+  JOBS.push({title,description:desc,fileName:JOB.fileName||''});
+  await saveJobs();JOB.fileBase64=null;JOB.fileName='';
+  document.getElementById('admin-job-title').value='';var d=document.getElementById('job-desc-text');if(d)d.value='';
+  clearJobFile();renderJobsList();closeModal('modal-job');showToast('💼 Poste ajouté & synchronisé : '+title,'success');
+}
+
+// ══════════════════════════════════════════
+// UTILS
+// ══════════════════════════════════════════
+function showToast(msg,type){var c=document.getElementById('toast-container');var t=document.createElement('div');t.className='toast '+(type||'');t.textContent=msg;c.appendChild(t);setTimeout(()=>t.remove(),4000);}
+function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+</script>
+</body>
+</html>
