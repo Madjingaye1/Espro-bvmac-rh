@@ -1,0 +1,2562 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BVMAC — Sélecteur de Profils · Analyseur CV</title>
+
+<!-- PDF.js -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+
+<!-- Firebase SDK -->
+
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=Jost:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400&display=swap');
+:root{
+  --navy:#0b1f3a;--navy2:#122848;--navy3:#1a3560;
+  --gold:#c9971c;--gold2:#e8b531;
+  --white:#ffffff;--muted:#8fa3be;--border:#1e3d6a;
+  --danger:#e05454;--success:#3cb87a;--text:#d0ddef;
+  --shadow:0 8px 40px rgba(0,0,0,0.4)
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Jost',sans-serif;background:var(--navy);color:var(--text);min-height:100vh;overflow-x:hidden}
+.bg-decor{position:fixed;inset:0;pointer-events:none;z-index:0;overflow:hidden}
+.bg-decor::before{content:'';position:absolute;width:600px;height:600px;border-radius:50%;background:radial-gradient(circle,rgba(201,151,28,0.08) 0%,transparent 70%);top:-200px;right:-100px}
+.bg-decor::after{content:'';position:absolute;width:400px;height:400px;border-radius:50%;background:radial-gradient(circle,rgba(26,53,96,0.6) 0%,transparent 70%);bottom:-100px;left:-100px}
+.bg-grid{position:absolute;inset:0;background-image:linear-gradient(rgba(201,151,28,0.04) 1px,transparent 1px),linear-gradient(90deg,rgba(201,151,28,0.04) 1px,transparent 1px);background-size:60px 60px}
+.page{display:none;position:relative;z-index:1;min-height:100vh}
+.page.active{display:flex;flex-direction:column}
+#page-home,#page-firebase-setup{align-items:center;justify-content:center;padding:40px 20px}
+#page-home .home-wrap{max-width:680px;width:100%;text-align:center;animation:fadeUp 0.7s ease both}
+@keyframes fadeUp{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:translateY(0)}}
+.abbr{font-family:'Playfair Display',serif;font-size:32px;font-weight:700;color:var(--gold);letter-spacing:0.08em;line-height:1}
+.full-name{font-size:11px;color:var(--muted);letter-spacing:0.12em;text-transform:uppercase;margin-top:3px}
+.home-divider{width:60px;height:2px;background:linear-gradient(90deg,transparent,var(--gold),transparent);margin:0 auto 28px}
+.home-welcome{font-family:'Playfair Display',serif;font-size:clamp(22px,4vw,34px);font-weight:600;color:var(--white);line-height:1.3;margin-bottom:10px}
+.home-welcome em{color:var(--gold);font-style:italic}
+.home-sub{font-size:14px;color:var(--muted);margin-bottom:12px}
+.home-appname{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:0.2em;text-transform:uppercase;color:var(--gold);border:1px solid rgba(201,151,28,0.3);padding:5px 16px;border-radius:20px;margin-bottom:32px;background:rgba(201,151,28,0.06)}
+/* Firebase status badge on home */
+.fb-status{display:inline-flex;align-items:center;gap:8px;padding:8px 16px;border-radius:20px;font-size:12px;font-family:'JetBrains Mono',monospace;margin-bottom:28px;border:1px solid}
+.fb-status.connected{background:rgba(60,184,122,0.1);border-color:rgba(60,184,122,0.3);color:#5de0a0}
+.fb-status.disconnected{background:rgba(224,84,84,0.1);border-color:rgba(224,84,84,0.3);color:#f08080}
+.fb-status.connecting{background:rgba(201,151,28,0.1);border-color:rgba(201,151,28,0.3);color:var(--gold2)}
+.fb-dot{width:8px;height:8px;border-radius:50%;background:currentColor}
+.fb-dot.pulse{animation:pulse 1.5s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.3}}
+.profile-cards{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:32px}
+@media(max-width:480px){.profile-cards{grid-template-columns:1fr}}
+.profile-card{background:var(--navy2);border:1px solid var(--border);border-radius:12px;padding:32px 24px;cursor:pointer;transition:all 0.25s;position:relative;overflow:hidden;text-align:left}
+.profile-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,var(--gold),var(--gold2));transform:scaleX(0);transition:transform 0.3s}
+.profile-card:hover{border-color:var(--gold);transform:translateY(-3px);box-shadow:var(--shadow)}
+.profile-card:hover::before{transform:scaleX(1)}
+.pc-icon{font-size:32px;margin-bottom:16px;display:block}
+.pc-title{font-family:'Playfair Display',serif;font-size:20px;color:var(--white);margin-bottom:8px}
+.pc-desc{font-size:12.5px;color:var(--muted);line-height:1.7}
+.pc-badge{display:inline-block;margin-top:14px;font-size:10px;font-family:'JetBrains Mono',monospace;letter-spacing:0.1em;text-transform:uppercase;padding:3px 10px;border-radius:10px;background:rgba(201,151,28,0.15);color:var(--gold)}
+.home-footer{font-size:11px;color:rgba(143,163,190,0.5);font-family:'JetBrains Mono',monospace;letter-spacing:0.1em}
+/* Firebase setup page */
+.setup-card{background:var(--navy2);border:1px solid var(--border);border-radius:16px;padding:40px;width:100%;max-width:640px;animation:fadeUp 0.5s ease both}
+.setup-title{font-family:'Playfair Display',serif;font-size:26px;color:var(--white);margin-bottom:8px}
+.setup-sub{font-size:13px;color:var(--muted);margin-bottom:32px;line-height:1.6}
+.setup-step{display:flex;gap:16px;margin-bottom:24px;padding:20px;background:var(--navy);border:1px solid var(--border);border-radius:10px}
+.step-num{width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,var(--gold),var(--gold2));color:var(--navy);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;flex-shrink:0}
+.step-body{flex:1}
+.step-title{font-weight:600;color:var(--white);margin-bottom:4px;font-size:14px}
+.step-desc{font-size:12.5px;color:var(--muted);line-height:1.7}
+.step-desc code{font-family:'JetBrains Mono',monospace;background:rgba(201,151,28,0.1);color:var(--gold2);padding:1px 5px;border-radius:3px;font-size:11px}
+.modal-overlay{position:fixed;inset:0;background:rgba(5,14,27,0.85);backdrop-filter:blur(6px);z-index:100;display:none;align-items:center;justify-content:center;padding:20px}
+.modal-overlay.active{display:flex}
+.modal-box{background:var(--navy2);border:1px solid var(--border);border-radius:16px;padding:40px;width:100%;max-width:420px;position:relative;animation:popIn 0.3s cubic-bezier(0.175,0.885,0.32,1.275) both}
+@keyframes popIn{from{opacity:0;transform:scale(0.9)}to{opacity:1;transform:scale(1)}}
+.modal-close{position:absolute;top:16px;right:16px;background:none;border:none;color:var(--muted);font-size:20px;cursor:pointer;padding:4px 8px;border-radius:6px}
+.modal-close:hover{background:rgba(255,255,255,0.05);color:var(--white)}
+.modal-icon{font-size:36px;text-align:center;margin-bottom:16px}
+.modal-title{font-family:'Playfair Display',serif;font-size:22px;color:var(--white);text-align:center;margin-bottom:6px}
+.modal-sub{font-size:12px;color:var(--muted);text-align:center;margin-bottom:28px}
+.form-group{margin-bottom:16px}
+.form-label{display:block;font-size:11px;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);margin-bottom:7px}
+.form-input{width:100%;background:var(--navy);border:1px solid var(--border);border-radius:8px;padding:11px 14px;color:var(--white);font-family:'Jost',sans-serif;font-size:14px;outline:none;transition:border-color 0.2s}
+.form-input:focus{border-color:var(--gold)}
+.form-input::placeholder{color:rgba(143,163,190,0.4)}
+textarea.form-input{resize:vertical;min-height:80px;line-height:1.6}
+.btn-primary{width:100%;padding:13px;background:linear-gradient(135deg,var(--gold),var(--gold2));color:var(--navy);border:none;border-radius:8px;font-family:'Jost',sans-serif;font-size:14px;font-weight:600;cursor:pointer;transition:all 0.2s;margin-top:8px;letter-spacing:0.03em}
+.btn-primary:hover{transform:translateY(-1px);box-shadow:0 6px 20px rgba(201,151,28,0.35)}
+.btn-primary:disabled{opacity:0.5;cursor:not-allowed;transform:none}
+.modal-error{background:rgba(224,84,84,0.1);border:1px solid rgba(224,84,84,0.3);color:#f08080;padding:10px 14px;border-radius:6px;font-size:12.5px;margin-top:12px;display:none}
+.modal-error.visible{display:block}
+.app-layout{display:grid;grid-template-columns:240px 1fr;min-height:100vh}
+@media(max-width:768px){.app-layout{grid-template-columns:1fr}.sidebar{display:none}}
+.sidebar{background:var(--navy2);border-right:1px solid var(--border);display:flex;flex-direction:column;position:sticky;top:0;height:100vh;overflow-y:auto}
+.sidebar-header{padding:24px 20px;border-bottom:1px solid var(--border)}
+.sidebar-logo-small{display:flex;align-items:center;gap:10px}
+.sls-emblem{width:36px;height:36px;border:1.5px solid var(--gold);border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:'Playfair Display',serif;font-size:13px;color:var(--gold);font-weight:700;flex-shrink:0}
+.sls-name{font-family:'Playfair Display',serif;font-size:12px;color:var(--white);font-weight:600;line-height:1.3}
+.sls-role{font-size:10px;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase;font-family:'JetBrains Mono',monospace}
+/* Sync indicator in sidebar */
+.sync-indicator{display:flex;align-items:center;gap:6px;padding:6px 12px;font-size:10px;font-family:'JetBrains Mono',monospace;color:var(--muted);border-top:1px solid var(--border)}
+.sync-dot{width:6px;height:6px;border-radius:50%;background:var(--success)}
+.sync-dot.syncing{background:var(--gold2);animation:pulse 1s infinite}
+.sync-dot.error{background:var(--danger)}
+.sidebar-nav{flex:1;padding:16px 12px}
+.nav-section-label{font-size:9.5px;letter-spacing:0.18em;text-transform:uppercase;color:rgba(143,163,190,0.4);font-family:'JetBrains Mono',monospace;padding:0 8px;margin:16px 0 8px}
+.nav-item{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:8px;cursor:pointer;font-size:13.5px;color:var(--muted);transition:all 0.15s;margin-bottom:2px;border:1px solid transparent}
+.nav-item:hover{background:rgba(255,255,255,0.04);color:var(--white)}
+.nav-item.active{background:rgba(201,151,28,0.12);color:var(--gold);border-color:rgba(201,151,28,0.2)}
+.nav-item .ni-icon{font-size:16px;width:20px;text-align:center}
+.ni-badge{margin-left:auto;background:var(--gold);color:var(--navy);font-size:9px;font-weight:700;padding:1px 6px;border-radius:8px;font-family:'JetBrains Mono',monospace}
+.sidebar-footer{padding:16px 12px;border-top:1px solid var(--border)}
+.btn-logout{display:flex;align-items:center;gap:8px;width:100%;padding:10px 12px;background:none;border:1px solid var(--border);border-radius:8px;color:var(--muted);font-family:'Jost',sans-serif;font-size:13px;cursor:pointer;transition:all 0.15s}
+.btn-logout:hover{border-color:var(--danger);color:#f08080;background:rgba(224,84,84,0.06)}
+.main-content{padding:32px 36px;overflow-y:auto}
+@media(max-width:900px){.main-content{padding:24px 20px}}
+.page-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:32px;flex-wrap:wrap;gap:16px}
+.page-header-title{font-family:'Playfair Display',serif;font-size:26px;color:var(--white);margin-bottom:4px}
+.page-header-sub{font-size:13px;color:var(--muted)}
+.panel{background:var(--navy2);border:1px solid var(--border);border-radius:12px;padding:28px;margin-bottom:24px}
+.panel-title{font-family:'Playfair Display',serif;font-size:17px;color:var(--white);margin-bottom:20px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.tab-bar{display:flex;gap:4px;background:var(--navy);border:1px solid var(--border);border-radius:10px;padding:4px;margin-bottom:24px;flex-wrap:wrap}
+.tab-btn{flex:1;min-width:120px;padding:9px 16px;border:none;border-radius:7px;background:transparent;color:var(--muted);font-family:'Jost',sans-serif;font-size:13px;cursor:pointer;transition:all 0.2s;font-weight:500}
+.tab-btn.active{background:var(--navy3);color:var(--gold);box-shadow:0 2px 8px rgba(0,0,0,0.2)}
+.stats-row{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:16px;margin-bottom:24px}
+.stat-card{background:var(--navy2);border:1px solid var(--border);border-radius:10px;padding:20px;text-align:center}
+.stat-number{font-family:'Playfair Display',serif;font-size:32px;color:var(--gold);line-height:1;margin-bottom:6px}
+.stat-label{font-size:11px;color:var(--muted);letter-spacing:0.08em;text-transform:uppercase;font-family:'JetBrains Mono',monospace}
+.data-table{width:100%;border-collapse:collapse}
+.data-table th{text-align:left;font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:var(--muted);font-family:'JetBrains Mono',monospace;padding:10px 16px;border-bottom:1px solid var(--border);font-weight:400}
+.data-table td{padding:14px 16px;border-bottom:1px solid rgba(30,61,106,0.5);font-size:13.5px;color:var(--text);vertical-align:middle}
+.data-table tr:last-child td{border-bottom:none}
+.data-table tr:hover td{background:rgba(255,255,255,0.02)}
+.badge{display:inline-block;font-size:10px;font-family:'JetBrains Mono',monospace;letter-spacing:0.06em;padding:3px 9px;border-radius:10px}
+.badge-green{background:rgba(60,184,122,0.15);color:#5de0a0}
+.badge-amber{background:rgba(201,151,28,0.15);color:var(--gold2)}
+.badge-red{background:rgba(224,84,84,0.15);color:#f08080}
+.badge-blue{background:rgba(100,160,230,0.15);color:#80b8f0}
+.btn-sm{padding:6px 14px;border-radius:6px;font-size:12px;font-family:'Jost',sans-serif;cursor:pointer;transition:all 0.15s;font-weight:500;border:1px solid transparent}
+.btn-sm-gold{background:rgba(201,151,28,0.1);border-color:rgba(201,151,28,0.3);color:var(--gold)}
+.btn-sm-red{background:rgba(224,84,84,0.1);border-color:rgba(224,84,84,0.3);color:#f08080}
+.btn-sm-blue{background:rgba(100,160,230,0.1);border-color:rgba(100,160,230,0.3);color:#80b8f0}
+.api-display{display:flex;align-items:center;gap:10px;background:var(--navy);border:1px solid var(--border);border-radius:8px;padding:12px 16px}
+.api-display .api-val{flex:1;font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--gold);word-break:break-all}
+.btn-icon{background:none;border:none;color:var(--muted);cursor:pointer;font-size:16px;padding:4px 8px;border-radius:6px;transition:all 0.15s}
+.btn-icon:hover{background:rgba(255,255,255,0.05);color:var(--white)}
+.drop-zone{border:2px dashed var(--border);border-radius:10px;padding:40px;text-align:center;cursor:pointer;transition:all 0.2s;position:relative;background:rgba(11,31,58,0.5)}
+.drop-zone input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+.drop-zone:hover,.drop-zone.drag-over{border-color:var(--gold);background:rgba(201,151,28,0.05)}
+.drop-zone .dz-icon{font-size:40px;display:block;margin-bottom:12px}
+.drop-zone .dz-title{font-family:'Playfair Display',serif;font-size:18px;color:var(--white);margin-bottom:6px}
+.drop-zone .dz-sub{font-size:12px;color:var(--muted)}
+.file-pills{display:flex;flex-wrap:wrap;gap:8px;margin-top:16px}
+.file-pill{display:flex;align-items:center;gap:8px;background:var(--navy);border:1px solid var(--border);border-radius:6px;padding:7px 12px;font-size:12.5px;color:var(--text)}
+.file-pill .fp-remove{cursor:pointer;color:var(--muted);margin-left:4px;transition:color 0.15s}
+.file-pill .fp-remove:hover{color:var(--danger)}
+.crit-card-rich{border:1px solid var(--border);border-radius:8px;padding:14px 16px;background:var(--navy);transition:all 0.15s;margin-bottom:8px}
+.crit-card-rich:hover{border-color:rgba(201,151,28,0.4)}
+.crit-card-rich.active{border-color:var(--gold);background:rgba(201,151,28,0.06)}
+.crit-card-rich .crit-check{width:16px;height:16px;border-radius:4px;border:1.5px solid var(--border);flex-shrink:0;display:flex;align-items:center;justify-content:center;transition:all 0.15s}
+.crit-card-rich.active .crit-check{background:var(--gold);border-color:var(--gold)}
+.crit-card-rich.active .crit-check::after{content:"✓";color:var(--navy);font-size:10px;font-weight:700}
+.crit-req-input{border-color:rgba(201,151,28,0.3) !important;background:rgba(11,31,58,0.8) !important}
+.crit-req-input:focus{border-color:var(--gold) !important}
+
+.crit-card{border:1px solid var(--border);border-radius:8px;padding:14px 16px;background:var(--navy);cursor:pointer;transition:all 0.15s;display:flex;align-items:flex-start;gap:10px}
+.crit-card:hover{border-color:rgba(201,151,28,0.4)}
+.crit-card.active{border-color:var(--gold);background:rgba(201,151,28,0.07)}
+.crit-check{width:16px;height:16px;border-radius:4px;border:1.5px solid var(--border);flex-shrink:0;margin-top:1px;display:flex;align-items:center;justify-content:center;transition:all 0.15s}
+.crit-card.active .crit-check{background:var(--gold);border-color:var(--gold)}
+.crit-card.active .crit-check::after{content:"✓";color:var(--navy);font-size:10px;font-weight:700}
+.crit-name{font-size:13px;font-weight:500;color:var(--white)}
+.crit-desc{font-size:11px;color:var(--muted);margin-top:2px}
+#admin-crit-grid{display:flex;flex-direction:column;gap:8px}
+.progress-log{background:#030d18;border:1px solid var(--border);border-radius:8px;padding:16px 20px;font-family:'JetBrains Mono',monospace;font-size:11.5px;min-height:120px;max-height:300px;overflow-y:auto;line-height:2}
+.log-line{display:block}
+.log-ok{color:#5de0a0}.log-err{color:#f08080}.log-info{color:#80b8f0}.log-warn{color:var(--gold2)}
+.progress-bar-wrap{height:8px;background:rgba(255,255,255,0.05);border-radius:4px;overflow:hidden;margin:10px 0 4px}
+.progress-bar-fill{height:100%;border-radius:4px;background:linear-gradient(90deg,var(--gold),var(--gold2));transition:width 0.4s ease}
+.progress-label{display:flex;justify-content:space-between;font-size:11px;color:var(--muted);font-family:'JetBrains Mono',monospace}
+.result-card{background:var(--navy2);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:16px;transition:box-shadow 0.2s;animation:fadeUp 0.4s ease both}
+.result-card:hover{box-shadow:0 4px 24px rgba(0,0,0,0.3)}
+.result-header{display:flex;align-items:center;gap:16px;padding:20px 24px;cursor:pointer;border-bottom:1px solid transparent;transition:background 0.15s}
+.result-header:hover{background:rgba(255,255,255,0.02)}
+.result-card.open .result-header{border-bottom-color:var(--border)}
+.rank-num{font-family:'Playfair Display',serif;font-size:30px;color:var(--border);min-width:44px;text-align:center;line-height:1}
+.rank-num.gold{color:#f5c842}.rank-num.silver{color:#b0b8c0}.rank-num.bronze{color:#c08050}
+.rh-info{flex:1}
+.rh-name{font-family:'Playfair Display',serif;font-size:18px;color:var(--white);margin-bottom:2px}
+.rh-file{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--muted);letter-spacing:0.06em}
+.rh-score-wrap{display:flex;flex-direction:column;align-items:flex-end;gap:5px}
+.rh-score{font-family:'Playfair Display',serif;font-size:36px;color:var(--white);line-height:1}
+.rh-score span{font-size:16px;color:var(--muted);font-family:'Jost',sans-serif}
+.score-bar{width:120px;height:5px;background:var(--navy);border-radius:3px;overflow:hidden}
+.score-fill{height:100%;border-radius:3px}
+.score-fill.high{background:linear-gradient(90deg,var(--success),#6be0a8)}
+.score-fill.mid{background:linear-gradient(90deg,var(--gold),var(--gold2))}
+.score-fill.low{background:linear-gradient(90deg,#c85050,#e07070)}
+.rh-chevron{color:var(--muted);font-size:20px;transition:transform 0.2s;margin-left:8px}
+.result-card.open .rh-chevron{transform:rotate(180deg)}
+.result-body{display:none;padding:28px;background:rgba(11,31,58,0.5)}
+.result-card.open .result-body{display:block}
+.rb-grid{display:grid;grid-template-columns:1fr 1fr;gap:24px}
+@media(max-width:700px){.rb-grid{grid-template-columns:1fr}}
+.rb-section-title{font-size:10px;letter-spacing:0.15em;text-transform:uppercase;color:var(--gold);font-family:'JetBrains Mono',monospace;margin-bottom:12px}
+.crit-scores-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;margin-bottom:24px}
+.cs-item{background:var(--navy);border:1px solid var(--border);border-radius:8px;padding:14px}
+.cs-name{font-size:10px;text-transform:uppercase;letter-spacing:0.1em;color:var(--muted);margin-bottom:6px;font-family:'JetBrains Mono',monospace}
+.cs-val{font-family:'Playfair Display',serif;font-size:24px;color:var(--white)}
+.cs-val span{font-size:12px;color:var(--muted);font-family:'Jost',sans-serif}
+.cs-bar-wrap{height:3px;background:rgba(255,255,255,0.05);margin-top:8px;border-radius:2px;overflow:hidden}
+.cs-bar-fill{height:100%;border-radius:2px;background:var(--gold)}
+.tag-cloud{display:flex;flex-wrap:wrap;gap:6px}
+.tag-item{font-size:11px;padding:4px 10px;border-radius:14px;font-family:'JetBrains Mono',monospace;letter-spacing:0.04em}
+.tag-green{background:rgba(60,184,122,0.12);color:#5de0a0;border:1px solid rgba(60,184,122,0.2)}
+.tag-red{background:rgba(224,84,84,0.12);color:#f08080;border:1px solid rgba(224,84,84,0.2)}
+.tag-blue{background:rgba(100,160,230,0.12);color:#80b8f0;border:1px solid rgba(100,160,230,0.2)}
+.rb-summary{font-size:13.5px;line-height:1.8;color:var(--text);background:var(--navy);border-left:3px solid var(--gold);padding:16px 20px;border-radius:0 8px 8px 0;margin-top:8px}
+.rec-pill{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:20px;font-size:13px;font-weight:600;margin-top:12px}
+.rec-green{background:rgba(60,184,122,0.15);color:#5de0a0;border:1px solid rgba(60,184,122,0.3)}
+.rec-amber{background:rgba(201,151,28,0.15);color:var(--gold2);border:1px solid rgba(201,151,28,0.3)}
+.rec-red{background:rgba(224,84,84,0.15);color:#f08080;border:1px solid rgba(224,84,84,0.3)}
+.export-row{display:flex;gap:10px;flex-wrap:wrap}
+.btn-export{display:flex;align-items:center;gap:8px;padding:10px 18px;border-radius:8px;font-family:'Jost',sans-serif;font-size:13px;font-weight:500;cursor:pointer;transition:all 0.15s;border:1px solid var(--border);background:var(--navy2);color:var(--text)}
+.btn-export:hover{border-color:var(--gold);color:var(--gold)}
+.btn-export.primary-export{background:linear-gradient(135deg,var(--gold),var(--gold2));color:var(--navy);border-color:transparent;font-weight:600}
+.btn-export.primary-export:hover{transform:translateY(-1px);box-shadow:0 4px 14px rgba(201,151,28,0.35);color:var(--navy)}
+.spinner{display:inline-block;width:14px;height:14px;border:2px solid rgba(11,31,58,0.3);border-top-color:var(--navy);border-radius:50%;animation:spin 0.7s linear infinite;vertical-align:middle;margin-right:6px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.toast-container{position:fixed;bottom:24px;right:24px;z-index:200;display:flex;flex-direction:column;gap:8px}
+.toast{background:var(--navy2);border:1px solid var(--border);border-radius:10px;padding:12px 18px;font-size:13px;color:var(--text);animation:slideToast 0.3s ease both;display:flex;align-items:center;gap:10px;max-width:360px;box-shadow:var(--shadow)}
+@keyframes slideToast{from{opacity:0;transform:translateX(20px)}to{opacity:1;transform:translateX(0)}}
+.toast.success{border-color:rgba(60,184,122,0.4);color:#5de0a0}
+.toast.error{border-color:rgba(224,84,84,0.4);color:#f08080}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media(max-width:600px){.row2{grid-template-columns:1fr}}
+.separator{height:1px;background:var(--border);margin:20px 0}
+.info-box{background:rgba(100,160,230,0.07);border:1px solid rgba(100,160,230,0.2);border-radius:8px;padding:14px 18px;font-size:12.5px;color:#a0c8f0;line-height:1.7}
+.warn-box{background:rgba(201,151,28,0.07);border:1px solid rgba(201,151,28,0.25);border-radius:8px;padding:14px 18px;font-size:12.5px;color:var(--gold2);line-height:1.7;margin-bottom:12px}
+.err-box{background:rgba(224,84,84,0.08);border:1px solid rgba(224,84,84,0.3);border-radius:8px;padding:14px 18px;font-size:12.5px;color:#f08080;line-height:1.7;margin-bottom:12px}
+.user-avatar{width:36px;height:36px;background:linear-gradient(135deg,var(--navy3),var(--gold));border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;color:var(--white);flex-shrink:0}
+.restricted-notice{background:rgba(201,151,28,0.07);border:1px solid rgba(201,151,28,0.2);border-radius:8px;padding:14px 18px;font-size:12.5px;color:var(--gold2);margin-bottom:24px;display:flex;align-items:center;gap:10px}
+.tab-panel{display:none}.tab-panel.active{display:block}
+.job-list-item{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border:1px solid var(--border);border-radius:8px;margin-bottom:8px;background:var(--navy);transition:all 0.15s;gap:12px}
+.job-list-item:hover{border-color:rgba(201,151,28,0.4)}
+.job-list-item.job-active{border-color:var(--gold);background:rgba(201,151,28,0.07)}
+.qualified-card{background:var(--navy2);border:1px solid var(--border);border-radius:10px;padding:18px 20px;margin-bottom:12px;display:flex;align-items:center;gap:16px;transition:all 0.2s;animation:fadeUp 0.3s ease both}
+.qualified-card:hover{border-color:rgba(201,151,28,0.3);box-shadow:0 4px 16px rgba(0,0,0,0.2)}
+.qc-name{font-family:'Playfair Display',serif;font-size:16px;color:var(--white);margin-bottom:3px}
+.qc-meta{font-size:11px;color:var(--muted)}
+.qc-badge-qualified{display:inline-flex;align-items:center;gap:5px;background:rgba(201,151,28,0.12);color:var(--gold);border:1px solid rgba(201,151,28,0.3);border-radius:12px;padding:3px 10px;font-size:10px;font-family:'JetBrains Mono',monospace;letter-spacing:0.08em;margin-top:5px}
+.qualify-checkbox{width:22px;height:22px;border-radius:6px;border:2px solid var(--border);background:transparent;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;transition:all 0.15s;user-select:none}
+.qualify-checkbox.checked{background:var(--gold);border-color:var(--gold)}
+.qualify-checkbox.checked::after{content:'★';color:var(--navy);font-size:12px}
+.result-qualify-btn{display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:20px;font-size:11px;font-family:'JetBrains Mono',monospace;cursor:pointer;transition:all 0.15s;border:1px solid rgba(201,151,28,0.3);background:rgba(201,151,28,0.07);color:var(--gold);letter-spacing:0.05em;white-space:nowrap;margin-top:8px}
+.result-qualify-btn:hover{background:rgba(201,151,28,0.18);border-color:var(--gold)}
+.result-qualify-btn.is-qualified{background:rgba(201,151,28,0.22);border-color:var(--gold2);color:var(--gold2)}
+.final-mode-banner{background:linear-gradient(90deg,rgba(201,151,28,0.12),rgba(201,151,28,0.03));border:1px solid rgba(201,151,28,0.35);border-radius:10px;padding:16px 22px;margin-bottom:20px;display:flex;align-items:center;gap:14px}
+/* Loading overlay */
+#loading-overlay{position:fixed;inset:0;background:var(--navy);z-index:999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px}
+#loading-overlay .load-logo{font-family:'Playfair Display',serif;font-size:36px;font-weight:700;color:var(--gold);letter-spacing:0.1em}
+#loading-overlay .load-sub{font-size:13px;color:var(--muted);font-family:'JetBrains Mono',monospace}
+#loading-overlay .load-bar{width:200px;height:3px;background:rgba(255,255,255,0.05);border-radius:2px;overflow:hidden;margin-top:8px}
+#loading-overlay .load-bar-fill{height:100%;background:linear-gradient(90deg,var(--gold),var(--gold2));border-radius:2px;animation:loadAnim 2s ease infinite}
+@keyframes loadAnim{0%{width:0%;margin-left:0}50%{width:60%;margin-left:20%}100%{width:0%;margin-left:100%}}
+</style>
+</head>
+<body>
+
+<!-- Loading overlay - hidden by default, shown only briefly -->
+<div id="loading-overlay" style="display:none">
+  <div class="load-logo">BVMAC</div>
+  <div class="load-sub" id="load-msg">Chargement…</div>
+  <div class="load-bar"><div class="load-bar-fill"></div></div>
+</div>
+
+<div class="bg-decor"><div class="bg-grid"></div></div>
+
+<!-- ═══════════════════════════════════════════ -->
+<!-- PAGE FIREBASE SETUP (shown if not configured) -->
+<!-- ═══════════════════════════════════════════ -->
+<div class="page" id="page-firebase-setup" style="display:none">
+  <div class="setup-card">
+    <div style="font-family:'Playfair Display',serif;font-size:28px;font-weight:700;color:var(--gold);margin-bottom:8px">🔥 Configuration Firebase</div>
+    <p class="setup-sub">Pour synchroniser les données entre tous les utilisateurs, configurez votre base de données Firebase. C'est gratuit et prend 5 minutes.</p>
+
+    <div class="setup-step">
+      <div class="step-num">1</div>
+      <div class="step-body">
+        <div class="step-title">Créer un projet Firebase</div>
+        <div class="step-desc">Allez sur <code>console.firebase.google.com</code> → Créer un projet → nommez-le <code>bvmac-rh</code></div>
+      </div>
+    </div>
+    <div class="setup-step">
+      <div class="step-num">2</div>
+      <div class="step-body">
+        <div class="step-title">Activer Realtime Database</div>
+        <div class="step-desc">Menu gauche → <code>Realtime Database</code> → Créer une base → Mode test → Activer</div>
+      </div>
+    </div>
+    <div class="setup-step">
+      <div class="step-num">3</div>
+      <div class="step-body">
+        <div class="step-title">Récupérer la configuration</div>
+        <div class="step-desc">⚙️ Paramètres du projet → Vos applications → icône <code>&lt;/&gt;</code> → Enregistrer → Copier <code>firebaseConfig</code></div>
+      </div>
+    </div>
+    <div class="setup-step">
+      <div class="step-num">4</div>
+      <div class="step-body">
+        <div class="step-title">Configurer les règles (temporaire)</div>
+        <div class="step-desc">Realtime Database → Règles → Mettre <code>".read": true, ".write": true</code> → Publier</div>
+      </div>
+    </div>
+
+    <div style="margin-top:8px">
+      <div class="form-group"><label class="form-label">URL de la base de données (databaseURL)</label><input class="form-input" type="text" id="setup-db-url" placeholder="https://bvmac-rh-default-rtdb.europe-west1.firebasedatabase.app"></div>
+      <div class="form-group"><label class="form-label">Clé API Firebase (apiKey)</label><input class="form-input" type="text" id="setup-api-key" placeholder="AIzaSy..."></div>
+      <div class="form-group"><label class="form-label">Project ID</label><input class="form-input" type="text" id="setup-project-id" placeholder="bvmac-rh"></div>
+      <div id="setup-error" class="err-box" style="display:none"></div>
+      <button class="btn-primary" onclick="saveFirebaseConfig()">🔥 Connecter Firebase</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════ -->
+<!-- PAGE HOME -->
+<!-- ═══════════════════════════════════════════ -->
+<div class="page active" id="page-home">
+  <div style="flex:1;display:flex;align-items:center;justify-content:center;padding:40px 20px">
+    <div class="home-wrap">
+      <div style="margin-bottom:32px"><div class="abbr">BVMAC</div><div class="full-name">Direction de Développement</div></div>
+      <div class="home-divider"></div>
+      <h1 class="home-welcome">Bienvenue dans l&apos;<em>Outil de<br>recrutement</em></h1>
+      <p class="home-sub">développé par la DD</p>
+      <div class="home-appname">⚙ Sélecteur de Profils — Analyseur CV v5.0</div>
+      <div id="home-fb-status" class="fb-status connecting"><div class="fb-dot pulse"></div><span>Connexion Firebase…</span></div>
+      <div class="profile-cards">
+        <div class="profile-card" onclick="openLogin('admin')"><span class="pc-icon">🔐</span><div class="pc-title">Administrateur</div><p class="pc-desc">Gestion des clés API, configuration des critères, gestion des utilisateurs et accès complet aux analyses.</p><span class="pc-badge">Accès complet</span></div>
+        <div class="profile-card" onclick="openLogin('user')"><span class="pc-icon">👤</span><div class="pc-title">Utilisateur</div><p class="pc-desc">Analyse et classement des CV selon les critères définis. Consultation et export des résultats.</p><span class="pc-badge">Accès restreint</span></div>
+      </div>
+      <p class="home-footer">BVMAC · DIRECTION DU DÉVELOPPEMENT · v5.0 — Firebase Sync</p>
+      <div style="margin-top:16px"><button onclick="resetFirebaseConfig()" style="background:none;border:none;color:rgba(143,163,190,0.4);font-size:11px;cursor:pointer;font-family:JetBrains Mono,monospace">⚙ Reconfigurer Firebase</button></div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL LOGIN -->
+<div class="modal-overlay" id="modal-login">
+  <div class="modal-box">
+    <button class="modal-close" onclick="closeModal('modal-login')">✕</button>
+    <div class="modal-icon" id="modal-icon">🔐</div>
+    <h2 class="modal-title" id="modal-title">Connexion</h2>
+    <p class="modal-sub" id="modal-sub">Entrez vos identifiants</p>
+    <div class="form-group"><label class="form-label">Identifiant</label><input class="form-input" type="text" id="login-username" placeholder="ex: admin" autocomplete="off"></div>
+    <div class="form-group"><label class="form-label">Mot de passe</label><input class="form-input" type="password" id="login-password" placeholder="••••••••"></div>
+    <button class="btn-primary" onclick="doLogin()">Se connecter</button>
+    <div class="modal-error" id="login-error">Identifiants incorrects.</div>
+  </div>
+</div>
+
+<!-- MODAL ADD USER -->
+<div class="modal-overlay" id="modal-add-user">
+  <div class="modal-box">
+    <button class="modal-close" onclick="closeModal('modal-add-user')">✕</button>
+    <div class="modal-icon">➕</div><h2 class="modal-title">Nouvel utilisateur</h2><p class="modal-sub">Créer un compte avec accès restreint</p>
+    <div class="form-group"><label class="form-label">Prénom et Nom</label><input class="form-input" type="text" id="nu-name" placeholder="Marie Dupont"></div>
+    <div class="row2">
+      <div class="form-group"><label class="form-label">Identifiant</label><input class="form-input" type="text" id="nu-username" placeholder="mdupont"></div>
+      <div class="form-group"><label class="form-label">Mot de passe</label><input class="form-input" type="password" id="nu-password" placeholder="••••••••"></div>
+    </div>
+    <div class="form-group"><label class="form-label">Département</label><input class="form-input" type="text" id="nu-dept" placeholder="Ressources Humaines"></div>
+    <button class="btn-primary" onclick="addUser()">Créer l'utilisateur</button>
+    <div class="modal-error" id="add-user-error"></div>
+  </div>
+</div>
+
+<!-- MODAL JOB -->
+<div class="modal-overlay" id="modal-job">
+  <div class="modal-box" style="max-width:560px">
+    <button class="modal-close" onclick="closeModal('modal-job')">✕</button>
+    <div class="modal-icon">💼</div><h2 class="modal-title">Définir la fiche de poste</h2><p class="modal-sub">Décrivez le poste ou joignez un document</p>
+    <div class="tab-bar" style="margin-bottom:20px">
+      <button class="tab-btn active" id="job-tab-text" onclick="switchJobTab('text')">✏️ Saisie manuelle</button>
+      <button class="tab-btn" id="job-tab-file" onclick="switchJobTab('file')">📎 Joindre un document</button>
+    </div>
+    <div id="job-input-text"><div class="form-group"><label class="form-label">Description du poste</label><textarea class="form-input" id="job-desc-text" style="min-height:140px" placeholder="Missions, responsabilités, compétences requises…"></textarea></div></div>
+    <div id="job-input-file" style="display:none">
+      <div class="drop-zone" id="job-drop-zone" style="padding:28px"><input type="file" id="job-file-input" accept=".pdf,.txt,.docx"><span class="dz-icon" style="font-size:28px">📄</span><p class="dz-title" style="font-size:15px">Glissez votre fiche de poste</p><p class="dz-sub">PDF, TXT, DOCX acceptés</p></div>
+      <div id="job-file-name" style="display:none;margin-top:12px" class="file-pill"><span id="job-file-label">—</span><span class="fp-remove" onclick="clearJobFile()">×</span></div>
+    </div>
+    <button class="btn-primary" style="margin-top:16px" onclick="validateJob()">✅ Valider le poste</button>
+    <div class="modal-error" id="job-modal-error"></div>
+  </div>
+</div>
+
+<!-- PAGE ADMIN -->
+<div class="page" id="page-admin">
+  <div class="app-layout">
+    <aside class="sidebar">
+      <div class="sidebar-header"><div class="sidebar-logo-small"><div class="sls-emblem">BV</div><div><div class="sls-name">Direction de<br>Développement BVMAC</div><div class="sls-role" id="admin-sidebar-role">Administrateur</div></div></div></div>
+      <div class="sync-indicator"><div class="sync-dot" id="sync-dot-admin"></div><span id="sync-label-admin">Synchronisé</span></div>
+      <nav class="sidebar-nav">
+        <div class="nav-section-label">Tableau de bord</div>
+        <div class="nav-item active" onclick="adminTab('dashboard',this)"><span class="ni-icon">🏠</span> Accueil</div>
+        <div class="nav-section-label">Configuration</div>
+        <div class="nav-item" onclick="adminTab('api',this)"><span class="ni-icon">⚙️</span> Configuration</div>
+        <div class="nav-item" onclick="adminTab('criteria',this)"><span class="ni-icon">📋</span> Critères</div>
+        <div class="nav-section-label">Utilisateurs</div>
+        <div class="nav-item" onclick="adminTab('users',this)"><span class="ni-icon">👥</span> Gestion comptes <span class="ni-badge" id="users-count-badge">0</span></div>
+        <div class="nav-section-label">Analyse</div>
+        <div class="nav-item" onclick="adminTab('analyze',this)"><span class="ni-icon">🔍</span> Analyser CV</div>
+        <div class="nav-item" onclick="adminTab('qualified',this)"><span class="ni-icon">⭐</span> Qualifiés <span class="ni-badge" id="qualified-count-badge">0</span></div>
+        <div class="nav-item" onclick="adminTab('history',this)"><span class="ni-icon">📊</span> Historique</div>
+      </nav>
+      <div class="sidebar-footer"><button class="btn-logout" onclick="logout()"><span>↩</span> Déconnexion</button></div>
+    </aside>
+    <main class="main-content">
+      <div class="tab-panel active" id="admin-dashboard">
+        <div class="page-header"><div><div class="page-header-title">Tableau de bord</div><div class="page-header-sub">Vue d'ensemble — données synchronisées Firebase</div></div></div>
+        <div class="stats-row">
+          <div class="stat-card"><div class="stat-number" id="stat-users">0</div><div class="stat-label">Utilisateurs</div></div>
+          <div class="stat-card"><div class="stat-number" id="stat-analyses">0</div><div class="stat-label">Analyses</div></div>
+          <div class="stat-card"><div class="stat-number" id="stat-cv">0</div><div class="stat-label">CV analysés</div></div>
+          <div class="stat-card"><div class="stat-number" id="stat-api">0/3</div><div class="stat-label">API actives</div></div>
+        </div>
+        <div class="panel"><div class="panel-title">🔥 Synchronisation Firebase</div>
+          <div class="info-box">
+            ✅ <strong>Toutes les données sont synchronisées en temps réel</strong> via Firebase.<br>
+            Les clés API, critères, postes, utilisateurs et l'historique sont accessibles depuis n'importe quel appareil.<br><br>
+            <strong>Identifiants admin par défaut :</strong> <code>admin / admin123</code>
+          </div>
+        </div>
+      </div>
+      <div class="tab-panel" id="admin-api">
+        <div class="page-header"><div><div class="page-header-title">Configuration</div><div class="page-header-sub">Firebase, clés API IA et statut de la chaîne</div></div></div>
+
+        <!-- ── Section Firebase STATIQUE ── -->
+        <div class="panel">
+          <div class="panel-title">🔥 Base de données Firebase <span id="fb-panel-badge" style="font-size:12px;font-weight:400;font-family:'JetBrains Mono',monospace;padding:2px 10px;border-radius:10px;margin-left:4px;background:rgba(224,84,84,0.15);color:#f08080">✗ Non configurée</span></div>
+
+          <!-- Statut Firebase (masqué si non connecté) -->
+          <div id="fb-status-block" style="display:none;margin-bottom:20px">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
+              <div style="background:var(--navy);border:1px solid var(--border);border-radius:8px;padding:16px">
+                <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.1em;color:var(--muted);font-family:JetBrains Mono,monospace;margin-bottom:6px">Statut</div>
+                <div id="fb-status-text" style="font-size:14px;font-weight:600;color:#5de0a0">✓ Connecté</div>
+              </div>
+              <div style="background:var(--navy);border:1px solid var(--border);border-radius:8px;padding:16px">
+                <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.1em;color:var(--muted);font-family:JetBrains Mono,monospace;margin-bottom:6px">Projet</div>
+                <div id="fb-project-text" style="font-size:13px;color:var(--white);font-family:JetBrains Mono,monospace">bvmac-rh</div>
+              </div>
+            </div>
+            <div style="background:var(--navy);border:1px solid var(--border);border-radius:8px;padding:14px 16px;margin-bottom:16px">
+              <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.1em;color:var(--muted);font-family:JetBrains Mono,monospace;margin-bottom:6px">Database URL</div>
+              <div id="fb-url-text" style="font-size:12px;color:var(--gold2);font-family:JetBrains Mono,monospace;word-break:break-all"></div>
+            </div>
+            <button class="btn-sm btn-sm-red" onclick="resetFirebaseConfig()">🗑 Réinitialiser Firebase</button>
+            <div style="height:1px;background:var(--border);margin:20px 0"></div>
+          </div>
+
+          <!-- Formulaire de configuration (toujours visible) -->
+          <div id="fb-form-block">
+            <div id="fb-form-title" style="font-size:13px;color:var(--muted);margin-bottom:16px">Saisissez vos informations Firebase pour activer la synchronisation entre appareils.</div>
+            <div class="form-group">
+              <label class="form-label">1. Database URL</label>
+              <input class="form-input" type="text" id="fb-db-url" placeholder="https://bvmac-rh-default-rtdb.europe-west1.firebasedatabase.app">
+            </div>
+            <div class="form-group">
+              <label class="form-label">2. Clé API Firebase (apiKey)</label>
+              <input class="form-input" type="text" id="fb-api-key" placeholder="AIzaSy...">
+            </div>
+            <div class="form-group">
+              <label class="form-label">3. Project ID</label>
+              <input class="form-input" type="text" id="fb-project-id" placeholder="bvmac-rh">
+            </div>
+            <div id="fb-error" style="display:none;background:rgba(224,84,84,0.1);border:1px solid rgba(224,84,84,0.3);color:#f08080;padding:12px 16px;border-radius:8px;font-size:13px;margin-bottom:12px"></div>
+            <button class="btn-primary" style="max-width:260px" id="fb-connect-btn" onclick="connectFirebase()">🔥 Connecter Firebase</button>
+          </div>
+        </div>
+
+        <!-- ── Section Clés API IA ── -->
+        <div class="panel">
+          <div class="panel-title">🤖 Moteurs IA <span style="font-size:12px;font-weight:400;color:var(--muted)">— Groq en priorité, MADJINGAYE en backup</span></div>
+
+          <!-- Groq (prioritaire) -->
+          <div style="border:1px solid var(--border);border-radius:10px;padding:20px;margin-bottom:16px;background:var(--navy)">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+              <span style="font-size:18px">⚡</span>
+              <div style="flex:1"><div style="font-weight:600;color:var(--white)">Groq <span style="font-size:11px;background:rgba(60,184,122,0.15);color:#5de0a0;padding:2px 8px;border-radius:8px;margin-left:6px">Prioritaire</span></div><div style="font-size:11px;color:var(--muted)">Ultra-rapide · Gratuit · console.groq.com/keys</div></div>
+              <span id="groq-status-dot" class="badge badge-red">✗ Non configurée</span>
+            </div>
+            <div class="form-group" style="margin-bottom:12px"><label class="form-label">Clé active</label><div class="api-display"><div class="api-val" id="groq-display-val">Non configurée</div></div></div>
+            <div class="form-group" style="margin-bottom:12px"><label class="form-label">Nouvelle clé</label><input class="form-input" type="password" id="groq-input" placeholder="gsk_..." style="font-family:JetBrains Mono,monospace;font-size:12px"></div>
+            <button class="btn-primary" style="max-width:200px" onclick="saveGroqKey()">💾 Enregistrer</button>
+          </div>
+
+          <!-- MADJINGAYE -->
+          <div style="border:1px solid var(--border);border-radius:10px;padding:20px;margin-bottom:16px;background:var(--navy)">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+              <span style="font-size:18px">🟡</span>
+              <div style="flex:1"><div style="font-weight:600;color:var(--white)">MADJINGAYE <span style="font-size:11px;background:rgba(201,151,28,0.15);color:var(--gold2);padding:2px 8px;border-radius:8px;margin-left:6px">Backup 1</span></div><div style="font-size:11px;color:var(--muted)">Google Gemini · aistudio.google.com/apikey</div></div>
+              <span id="gemini-status-dot" class="badge badge-red">✗ Non configurée</span>
+            </div>
+            <div class="form-group" style="margin-bottom:12px"><label class="form-label">Clé active</label><div class="api-display"><div class="api-val" id="api-display-val">Non configurée</div><button class="btn-icon" onclick="toggleApiVis()">👁</button></div></div>
+            <div class="form-group" style="margin-bottom:12px"><label class="form-label">Nouvelle clé</label><input class="form-input" type="password" id="api-input" placeholder="AIzaSy..." style="font-family:JetBrains Mono,monospace;font-size:12px"></div>
+            <button class="btn-primary" style="max-width:200px" onclick="saveApiKey()">💾 Enregistrer</button>
+          </div>
+
+          <!-- Mistral -->
+          <div style="border:1px solid var(--border);border-radius:10px;padding:20px;background:var(--navy)">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+              <span style="font-size:18px">🔵</span>
+              <div style="flex:1"><div style="font-weight:600;color:var(--white)">Mistral <span style="font-size:11px;background:rgba(100,160,230,0.15);color:#80b8f0;padding:2px 8px;border-radius:8px;margin-left:6px">Backup 2</span></div><div style="font-size:11px;color:var(--muted)">Excellent en français · console.mistral.ai/api-keys</div></div>
+              <span id="mistral-status-dot" class="badge badge-red">✗ Non configurée</span>
+            </div>
+            <div class="form-group" style="margin-bottom:12px"><label class="form-label">Clé active</label><div class="api-display"><div class="api-val" id="mistral-display-val">Non configurée</div></div></div>
+            <div class="form-group" style="margin-bottom:12px"><label class="form-label">Nouvelle clé</label><input class="form-input" type="password" id="mistral-input" placeholder="..." style="font-family:JetBrains Mono,monospace;font-size:12px"></div>
+            <button class="btn-primary" style="max-width:200px" onclick="saveMistralKey()">💾 Enregistrer</button>
+          </div>
+        </div>
+
+        <!-- ── Statut chaîne ── -->
+        <div class="panel"><div class="panel-title">🔄 Statut de la chaîne</div><div id="api-chain-status"></div></div>
+      </div>
+      <div class="tab-panel" id="admin-criteria">
+        <div class="page-header"><div><div class="page-header-title">Critères d'évaluation</div><div class="page-header-sub">Synchronisés pour tous les utilisateurs</div></div></div>
+        <div class="panel"><div class="panel-title">💼 Postes à pourvoir</div>
+          <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-bottom:16px">
+            <div style="flex:1;min-width:200px"><label class="form-label">Intitulé du poste</label><input class="form-input" type="text" id="admin-job-title" placeholder="ex: Analyste Financier Senior"></div>
+            <button class="btn-primary" style="max-width:180px;padding:11px" onclick="openJobModal()">+ Définir le poste</button>
+          </div>
+          <div id="jobs-list"></div>
+          <div class="info-box" style="margin-top:16px">💡 Cliquez sur un poste pour l'activer. Le poste actif est visible par tous les utilisateurs.</div>
+        </div>
+        <div class="panel">
+          <div class="panel-title">📋 Critères d'évaluation
+            <span style="font-size:11px;font-weight:400;color:var(--muted);font-family:'JetBrains Mono',monospace">— Cochez et décrivez les exigences pour chaque critère</span>
+          </div>
+          <div id="admin-crit-grid"></div>
+          <div class="separator"></div>
+          <div class="panel-title" style="font-size:15px;margin-bottom:16px">➕ Ajouter un critère personnalisé</div>
+          <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-bottom:12px">
+            <div style="flex:1;min-width:180px">
+              <label class="form-label">Nom du critère</label>
+              <input class="form-input" type="text" id="new-crit-name" placeholder="Ex: Certification CFA, Maîtrise Bloomberg…">
+            </div>
+            <div style="flex:2;min-width:240px">
+              <label class="form-label">Exigences / Description pour l'IA</label>
+              <input class="form-input" type="text" id="new-crit-req" placeholder="Ex: Niveau CFA II minimum, expérience sur terminaux Bloomberg requis">
+            </div>
+            <button class="btn-sm btn-sm-gold" style="padding:11px 20px;white-space:nowrap" onclick="addCustomCriterionAdmin()">+ Ajouter</button>
+          </div>
+          <div id="admin-custom-crit-list"></div>
+          <button class="btn-primary" style="max-width:240px;margin-top:16px" onclick="saveCriteria()">💾 Enregistrer & synchroniser</button>
+        </div>
+      </div>
+      <div class="tab-panel" id="admin-users">
+        <div class="page-header"><div><div class="page-header-title">Utilisateurs</div><div class="page-header-sub">Comptes synchronisés Firebase</div></div>
+          <button class="btn-primary" style="max-width:180px;padding:10px" onclick="openModal('modal-add-user')">+ Nouvel utilisateur</button>
+        </div>
+        <div class="panel" style="padding:0"><table class="data-table"><thead><tr><th>Utilisateur</th><th>Identifiant</th><th>Département</th><th>Statut</th><th>Actions</th></tr></thead><tbody id="users-tbody"></tbody></table></div>
+      </div>
+      <div class="tab-panel" id="admin-analyze">
+        <div class="page-header"><div><div class="page-header-title">Analyser des CV</div><div class="page-header-sub">PDF, DOCX, TXT — max 50 CV</div></div></div>
+        <div id="admin-analyze-container"></div>
+      </div>
+      <div class="tab-panel" id="admin-qualified">
+        <div class="page-header">
+          <div>
+            <div class="page-header-title">⭐ Candidats Qualifiés</div>
+            <div class="page-header-sub">Sélectionnés manuellement pour l'analyse finale</div>
+          </div>
+          <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+            <button class="btn-primary" style="max-width:220px;padding:10px" onclick="launchFinalAnalysis()">🏆 Lancer l'analyse finale</button>
+            <button class="btn-sm btn-sm-red" style="padding:10px 16px" onclick="clearAllQualified()">🗑 Vider la liste</button>
+          </div>
+        </div>
+        <div id="qualified-banner" style="display:none" class="info-box" style="margin-bottom:20px"></div>
+        <div id="qualified-list-container">
+          <div class="panel" style="text-align:center;padding:60px">
+            <div style="font-size:48px;margin-bottom:16px">⭐</div>
+            <div style="color:var(--muted);margin-bottom:8px">Aucun candidat qualifié.</div>
+            <div style="font-size:12px;color:rgba(143,163,190,0.5)">Cochez des candidats dans les résultats d'analyse pour les qualifier.</div>
+          </div>
+        </div>
+      </div>
+        <div class="page-header"><div><div class="page-header-title">Historique</div><div class="page-header-sub">Toutes les analyses — synchronisé Firebase</div></div></div>
+        <div class="panel" style="padding:0"><table class="data-table"><thead><tr><th>Date</th><th>Utilisateur</th><th>Poste</th><th>CV</th><th>Score max</th></tr></thead><tbody id="history-tbody"></tbody></table></div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<!-- PAGE USER -->
+<div class="page" id="page-user">
+  <div class="app-layout">
+    <aside class="sidebar">
+      <div class="sidebar-header"><div class="sidebar-logo-small"><div class="sls-emblem">BV</div><div><div class="sls-name">Direction de<br>Développement BVMAC</div><div class="sls-role" id="user-sidebar-role">Utilisateur</div></div></div></div>
+      <div class="sync-indicator"><div class="sync-dot" id="sync-dot-user"></div><span id="sync-label-user">Synchronisé</span></div>
+      <nav class="sidebar-nav">
+        <div class="nav-section-label">Navigation</div>
+        <div class="nav-item active" onclick="userTab('analyze',this)"><span class="ni-icon">🔍</span> Analyser des CV</div>
+        <div class="nav-item" onclick="userTab('results',this)"><span class="ni-icon">📊</span> Résultats</div>
+      </nav>
+      <div class="sidebar-footer"><button class="btn-logout" onclick="logout()"><span>↩</span> Déconnexion</button></div>
+    </aside>
+    <main class="main-content">
+      <div class="tab-panel active" id="user-analyze">
+        <div class="page-header"><div><div class="page-header-title">Analyser des CV</div><div class="page-header-sub" id="user-job-sub">Poste : —</div></div></div>
+        <div class="restricted-notice">🔒 Les critères et le poste sont définis par l'administrateur.</div>
+        <div id="user-analyze-container"></div>
+      </div>
+      <div class="tab-panel" id="user-results">
+        <div class="page-header"><div><div class="page-header-title">Résultats</div><div class="page-header-sub">Classement des candidats</div></div></div>
+        <div id="user-results-container"><div class="panel" style="text-align:center;padding:60px"><div style="font-size:48px;margin-bottom:16px">📂</div><div style="color:var(--muted)">Aucune analyse effectuée.</div></div></div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<div class="toast-container" id="toast-container"></div>
+
+<script>
+// ══════════════════════════════════════════
+// PDF.js setup
+// ══════════════════════════════════════════
+if(typeof pdfjsLib!=='undefined'){
+  pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+}
+
+// ══════════════════════════════════════════
+// STATE
+// ══════════════════════════════════════════
+var DB = null;
+var FB_CONNECTED = false;
+var FB_BASE_URL = '';
+var FB_API_KEY  = '';
+
+// ── Qualified candidates pool (persists across analysis sessions) ──
+var QUALIFIED_CANDIDATES = [];   // [{...result, qualifiedAt, seriesLabel}]
+var IS_FINAL_ANALYSIS = false;   // true = mode analyse finale
+
+// ── Config helpers ──────────────────────────────────────────────────────────
+function getFirebaseConfig(){ try{ var r=localStorage.getItem('bvmac_fb_config'); return r?JSON.parse(r):null; }catch(e){return null;} }
+function setFirebaseConfig(cfg){ try{ localStorage.setItem('bvmac_fb_config',JSON.stringify(cfg)); }catch(e){} }
+function resetFirebaseConfig(){ if(!confirm('Reconfigurer Firebase ?')) return; localStorage.removeItem('bvmac_fb_config'); location.reload(); }
+
+// ── Low-level REST helpers ──────────────────────────────────────────────────
+// Firebase Realtime Database REST API — no SDK required
+function fbUrl(path){
+  return FB_BASE_URL.replace(/\/$/,'')+'/'+path.replace(/^\//,'')+'.json?auth='+FB_API_KEY;
+}
+
+async function fbSet(path, data){
+  if(!FB_CONNECTED) return;
+  try{
+    var res = await fetch(fbUrl(path), {
+      method:'PUT',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify(data)
+    });
+    if(!res.ok) throw new Error('HTTP '+res.status);
+  } catch(e){ console.warn('fbSet error:', e); setSyncStatus('error'); }
+}
+
+async function fbGet(path){
+  if(!FB_CONNECTED) return null;
+  try{
+    var res = await fetch(fbUrl(path));
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    return await res.json();
+  } catch(e){ console.warn('fbGet error:', e); return null; }
+}
+
+async function fbPush(path, data){
+  if(!FB_CONNECTED) return null;
+  try{
+    var res = await fetch(fbUrl(path), {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify(data)
+    });
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    var j = await res.json();
+    return j.name; // Firebase push key
+  } catch(e){ console.warn('fbPush error:', e); return null; }
+}
+
+// ── Sync status UI ──────────────────────────────────────────────────────────
+function setSyncStatus(status){
+  // status: 'ok' | 'syncing' | 'error'
+  ['admin','user'].forEach(function(r){
+    var dot = document.getElementById('sync-dot-'+r);
+    var lbl = document.getElementById('sync-label-'+r);
+    if(!dot||!lbl) return;
+    dot.className = 'sync-dot' + (status==='syncing'?' syncing':status==='error'?' error':'');
+    lbl.textContent = status==='syncing'?'Synchronisation…':status==='error'?'Erreur sync':'Synchronisé';
+  });
+}
+
+// ── Firebase panel badge ────────────────────────────────────────────────────
+function updateFbStatusBadge(){
+  var badge = document.getElementById('fb-panel-badge');
+  if(!badge) return;
+  if(FB_CONNECTED){
+    badge.style.background='rgba(60,184,122,0.15)';
+    badge.style.color='#5de0a0';
+    badge.textContent='✓ Connectée';
+  } else {
+    badge.style.background='rgba(224,84,84,0.15)';
+    badge.style.color='#f08080';
+    badge.textContent='✗ Non configurée';
+  }
+}
+
+// ── Save all data to Firebase ───────────────────────────────────────────────
+async function pushAllToFirebase(){
+  if(!FB_CONNECTED) return;
+  setSyncStatus('syncing');
+  try{
+    await fbSet('bvmac/accounts', ACCOUNTS);
+    await fbSet('bvmac/criteria', CRITERIA_CONFIG);
+    await fbSet('bvmac/jobs', JOBS);
+    await fbSet('bvmac/activeJob', {active:JOB.active,title:JOB.title,description:JOB.description,fileName:JOB.fileName||''});
+    setSyncStatus('ok');
+  } catch(e){ setSyncStatus('error'); }
+}
+
+// ── Load all data from Firebase ─────────────────────────────────────────────
+async function loadAllFromFirebase(){
+  if(!FB_CONNECTED) return;
+  setSyncStatus('syncing');
+  try{
+    var data = await fbGet('bvmac');
+    if(data){
+      if(data.accounts){
+        // Merge: keep admin local password but load other accounts
+        var fbAccounts = data.accounts;
+        // Preserve local admin
+        var localAdmin = ACCOUNTS['admin'];
+        ACCOUNTS = fbAccounts;
+        ACCOUNTS['admin'] = localAdmin;
+      }
+      if(data.criteria){
+        CRITERIA_CONFIG = data.criteria;
+        STATE.selectedCriteria = new Set(CRITERIA_CONFIG.selected||[]);
+      }
+      if(data.jobs) JOBS = data.jobs;
+      if(data.activeJob && data.activeJob.active){
+        JOB = {active:true, title:data.activeJob.title||'', description:data.activeJob.description||'', fileBase64:null, fileName:data.activeJob.fileName||''};
+        CRITERIA_CONFIG.jobTitle = JOB.title;
+      }
+      if(data.analyses) STATE.analyses = Array.isArray(data.analyses) ? data.analyses : Object.values(data.analyses);
+    }
+    setSyncStatus('ok');
+  } catch(e){ setSyncStatus('error'); }
+}
+
+// ── Setup Firebase listeners (polling every 10s) ─────────────────────────────
+var _fbPollInterval = null;
+function setupFirebaseListeners(){
+  if(_fbPollInterval) clearInterval(_fbPollInterval);
+  _fbPollInterval = setInterval(async function(){
+    if(!FB_CONNECTED) return;
+    var prevAccLen = Object.keys(ACCOUNTS).length;
+    await loadAllFromFirebase();
+    // Refresh UI silently if on relevant pages
+    if(STATE.currentRole==='admin'){
+      renderUsersTable();
+      refreshAdminDashboard();
+      renderHistory();
+    }
+  }, 10000);
+}
+
+// ── Connect to Firebase ─────────────────────────────────────────────────────
+async function connectFirebase(){
+  var dbUrl   = (document.getElementById('fb-db-url')||{}).value||'';
+  var apiKey  = (document.getElementById('fb-api-key')||{}).value||'';
+  var projId  = (document.getElementById('fb-project-id')||{}).value||'';
+  var errEl   = document.getElementById('fb-error');
+
+  dbUrl  = dbUrl.trim();
+  apiKey = apiKey.trim();
+  projId = projId.trim();
+
+  if(!dbUrl||!apiKey||!projId){
+    if(errEl){errEl.textContent='Veuillez remplir les 3 champs.';errEl.style.display='block';}
+    return;
+  }
+  if(!dbUrl.startsWith('https://')){
+    if(errEl){errEl.textContent='L\'URL doit commencer par https://';errEl.style.display='block';}
+    return;
+  }
+
+  var btn = document.getElementById('fb-connect-btn');
+  if(btn){btn.disabled=true;btn.textContent='🔄 Connexion…';}
+  if(errEl) errEl.style.display='none';
+
+  // Test connection
+  try{
+    var testUrl = dbUrl.replace(/\/$/,'')+'/bvmac/ping.json?auth='+apiKey;
+    var res = await fetch(testUrl, {
+      method:'PUT',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ts: Date.now()})
+    });
+    if(!res.ok){
+      var body = await res.text();
+      throw new Error('Firebase a rejeté la requête ('+res.status+'). Vérifiez la clé API et les règles de sécurité.');
+    }
+  } catch(e){
+    if(errEl){errEl.textContent='❌ Échec : '+e.message;errEl.style.display='block';}
+    if(btn){btn.disabled=false;btn.textContent='🔥 Connecter Firebase';}
+    return;
+  }
+
+  // Save and activate
+  FB_BASE_URL = dbUrl;
+  FB_API_KEY  = apiKey;
+  FB_CONNECTED = true;
+
+  setFirebaseConfig({dbUrl:dbUrl, apiKey:apiKey, projectId:projId});
+  updateFbStatusBadge();
+  renderFirebasePanel();
+  setSyncStatus('syncing');
+
+  // Load existing data
+  await loadAllFromFirebase();
+
+  // Push local state up
+  await pushAllToFirebase();
+
+  setupFirebaseListeners();
+
+  if(btn){btn.disabled=false;btn.textContent='🔥 Connecter Firebase';}
+  showToast('✅ Firebase connecté !','success');
+
+  // Refresh admin UI if open
+  if(STATE.currentRole==='admin'){
+    refreshAdminDashboard();
+    renderAdminCriteria();
+    renderUsersTable();
+    renderHistory();
+  }
+}
+
+// ── Save Firebase config at boot if already configured ──────────────────────
+async function initFirebase(){
+  var cfg = getFirebaseConfig();
+  if(!cfg||!cfg.dbUrl||!cfg.apiKey) return;
+  FB_BASE_URL  = cfg.dbUrl;
+  FB_API_KEY   = cfg.apiKey;
+  FB_CONNECTED = true;
+  updateFbStatusBadge();
+  renderFirebasePanel();
+  await loadAllFromFirebase();
+  setupFirebaseListeners();
+}
+
+async function saveFirebaseConfig(){
+  await pushAllToFirebase();
+}
+
+// ── Render Firebase panel (show/hide form) ──────────────────────────────────
+function renderFirebasePanel(){
+  var statusBlock = document.getElementById('fb-status-block');
+  var formBlock   = document.getElementById('fb-form-block');
+  var formTitle   = document.getElementById('fb-form-title');
+  var fbUrlText   = document.getElementById('fb-url-text');
+  var fbProjText  = document.getElementById('fb-project-text');
+
+  if(FB_CONNECTED){
+    var cfg = getFirebaseConfig()||{};
+    if(statusBlock) statusBlock.style.display='block';
+    if(fbUrlText)   fbUrlText.textContent = FB_BASE_URL;
+    if(fbProjText)  fbProjText.textContent = cfg.projectId||'—';
+    if(formTitle)   formTitle.textContent  = 'Reconfigurer la connexion Firebase ci-dessous.';
+  } else {
+    if(statusBlock) statusBlock.style.display='none';
+    if(formTitle)   formTitle.textContent  = 'Saisissez vos informations Firebase pour activer la synchronisation entre appareils.';
+  }
+  updateFbStatusBadge();
+}
+
+const STATE = {
+  currentRole:null, currentUser:null,
+  apiKey:'', groqKey:'', mistralKey:'',
+  apiVisible:false, loginTarget:'admin',
+  analyses:[], totalCv:0,
+  results:[], uploadedFiles:[],
+  selectedCriteria:new Set(['education','finance','tools','experience']),
+};
+var customCriteriaAdminList = [];
+var criteriaDescriptions = {};
+var ACCOUNTS = { admin:{password:'admin123',role:'admin',name:'Administrateur',dept:'Direction',active:true} };
+var CRITERIA_CONFIG = {selected:['education','finance','tools','experience'],custom:'',customList:[],requirements:{},jobTitle:''};
+var JOBS = [];
+var JOB  = {active:false,title:'',description:'',fileBase64:null,fileName:''};
+
+const DEFAULT_CRITERIA = [
+  {id:'education',    name:"Niveau d'études",          desc:'Bac+5, école de commerce…',   defaultReq:'Minimum Bac+5 (Master, Grande École de Commerce ou d\'Ingénieurs). Valoriser les diplômes reconnus nationalement et internationalement.'},
+  {id:'finance',      name:'Expérience finance',        desc:'Banque, marchés, gestion…',   defaultReq:'Expérience directe en banque, marchés financiers, gestion d\'actifs ou audit financier. Connaissance des instruments financiers requise.'},
+  {id:'tools',        name:'Outils techniques',         desc:'Excel, Bloomberg, Python…',   defaultReq:'Maîtrise avancée d\'Excel (tableaux croisés, VBA), connaissance d\'au moins un outil de marché (Bloomberg, Reuters). Python ou SQL est un plus.'},
+  {id:'languages',    name:'Langues',                   desc:'Anglais, multilinguisme…',    defaultReq:'Anglais professionnel obligatoire (niveau C1 minimum). Toute autre langue valorisée, particulièrement le français courant.'},
+  {id:'experience',   name:"Années d'expérience",       desc:'Volume et pertinence…',       defaultReq:'Minimum 3 ans d\'expérience pertinente dans un domaine lié au poste. Valoriser la progression de carrière et la diversité des missions.'},
+  {id:'leadership',   name:'Leadership & management',   desc:"Encadrement d'équipes…",      defaultReq:'Expérience avérée en encadrement d\'équipes (au moins 2 personnes). Capacité à définir des objectifs et développer une équipe.'},
+  {id:'international',name:'Expérience internationale', desc:"Postes à l'étranger…",        defaultReq:'Expérience professionnelle à l\'international (poste, mission longue, ou formation). Ouverture multiculturelle démontrée.'},
+  {id:'startups',     name:'Esprit entrepreneurial',    desc:'Startups, innovation…',       defaultReq:'Participation à la création ou développement d\'une structure (startup, projet interne). Culture de l\'innovation.'},
+];
+
+// ══════════════════════════════════════════
+// APP INIT
+// ══════════════════════════════════════════
+function initApp(){
+  // Load from localStorage
+  try{ STATE.apiKey = localStorage.getItem('bvmac_key_gemini')||''; }catch(e){}
+  try{ STATE.groqKey = localStorage.getItem('bvmac_key_groq')||''; }catch(e){}
+  try{ STATE.mistralKey = localStorage.getItem('bvmac_key_mistral')||''; }catch(e){}
+  try{ var lc=localStorage.getItem('bvmac_criteria_bk'); if(lc){var c=JSON.parse(lc);CRITERIA_CONFIG=c;STATE.selectedCriteria=new Set(c.selected||[]);} }catch(e){}
+  try{ var lj=localStorage.getItem('bvmac_jobs_bk'); if(lj) JOBS=JSON.parse(lj); }catch(e){}
+  try{ var la=localStorage.getItem('bvmac_active_job'); if(la){var aj=JSON.parse(la);if(aj&&aj.active)JOB=aj;} }catch(e){}
+  // Load qualified candidates
+  loadQualifiedLocal();
+  updateQualifiedBadge();
+  // Show home page
+  showPage('page-home');
+  // Init Firebase if already configured
+  initFirebase();
+}
+
+// ══════════════════════════════════════════
+// AUTH
+// ══════════════════════════════════════════
+function openLogin(role){
+  STATE.loginTarget=role;
+  document.getElementById('modal-icon').textContent=role==='admin'?'🔐':'👤';
+  document.getElementById('modal-title').textContent=role==='admin'?'Connexion Administrateur':'Connexion Utilisateur';
+  document.getElementById('modal-sub').textContent=role==='admin'?'Accès complet':'Accès restreint';
+  document.getElementById('login-username').value='';
+  document.getElementById('login-password').value='';
+  document.getElementById('login-error').classList.remove('visible');
+  openModal('modal-login');
+  setTimeout(function(){document.getElementById('login-username').focus();},300);
+}
+
+function doLogin(){
+  var u=document.getElementById('login-username').value.trim();
+  var p=document.getElementById('login-password').value;
+  var acc=ACCOUNTS[u];
+  var errEl=document.getElementById('login-error');
+  if(!acc||acc.password!==p){errEl.textContent='Identifiants incorrects.';errEl.classList.add('visible');return;}
+  if(!acc.active){errEl.textContent='Compte désactivé.';errEl.classList.add('visible');return;}
+  if(STATE.loginTarget==='admin'&&acc.role!=='admin'){errEl.textContent='Pas de droits admin.';errEl.classList.add('visible');return;}
+  closeModal('modal-login');
+  STATE.currentUser=u;
+  STATE.currentRole=acc.role;
+  // Toujours lire les critères depuis CRITERIA_CONFIG (source canonique sauvegardée)
+  STATE.selectedCriteria = new Set(CRITERIA_CONFIG.selected||[]);
+  if(acc.role==='admin'){
+    document.getElementById('admin-sidebar-role').textContent=acc.name;
+    showPage('page-admin');
+    refreshAdminDashboard();
+    renderAdminCriteria();
+    renderUsersTable();
+    renderAllApiDisplays();
+    buildAnalyzePanel('admin');
+    updateQualifiedBadge();
+  } else {
+    document.getElementById('user-sidebar-role').textContent=acc.name;
+    var jsub=document.getElementById('user-job-sub');
+    if(jsub) jsub.textContent='Poste : '+(CRITERIA_CONFIG.jobTitle||'Non défini');
+    showPage('page-user');
+    buildAnalyzePanel('user');
+  }
+  showToast('Connecté en tant que '+acc.name,'success');
+}
+
+function logout(){
+  STATE.currentRole=null;STATE.currentUser=null;STATE.results=[];STATE.uploadedFiles=[];
+  showPage('page-home');showToast('Déconnecté.','');
+}
+
+// ══════════════════════════════════════════
+// NAVIGATION
+// ══════════════════════════════════════════
+function showPage(id){
+  document.querySelectorAll('.page').forEach(function(p){p.classList.remove('active');});
+  var el=document.getElementById(id);
+  if(el) el.classList.add('active');
+}
+
+function adminTab(name,el){
+  document.querySelectorAll('#page-admin .nav-item').forEach(function(i){i.classList.remove('active');});
+  if(el) el.classList.add('active');
+  ['dashboard','api','criteria','users','analyze','qualified','history'].forEach(function(p){
+    var panel=document.getElementById('admin-'+p);
+    if(panel) panel.style.display=p===name?'block':'none';
+  });
+  if(name==='api') renderAllApiDisplays();
+  if(name==='qualified'){ renderQualifiedPanel(); }
+  if(name==='analyze'){ refreshInlineCritDisplay('admin'); }
+}
+
+function userTab(name,el){
+  document.querySelectorAll('#page-user .nav-item').forEach(function(i){i.classList.remove('active');});
+  if(el) el.classList.add('active');
+  ['analyze','results'].forEach(function(p){
+    var panel=document.getElementById('user-'+p);
+    if(panel) panel.style.display=p===name?'block':'none';
+  });
+}
+
+function openModal(id){var el=document.getElementById(id);if(el)el.classList.add('active');}
+function closeModal(id){var el=document.getElementById(id);if(el)el.classList.remove('active');}
+
+// ══════════════════════════════════════════
+// API KEYS
+// ══════════════════════════════════════════
+function renderAllApiDisplays(){
+  var mask=function(k){return k?k.substring(0,8)+'••••••••••••':'Non configurée';};
+  var el1=document.getElementById('api-display-val'); if(el1)el1.textContent=mask(STATE.apiKey);
+  var el2=document.getElementById('groq-display-val'); if(el2)el2.textContent=mask(STATE.groqKey);
+  var el3=document.getElementById('mistral-display-val'); if(el3)el3.textContent=mask(STATE.mistralKey);
+  var chain=document.getElementById('api-chain-status');
+  if(chain){
+    var items=[
+      {l:'Groq',k:STATE.groqKey,i:'⚡',r:'Prioritaire'},
+      {l:'MADJINGAYE',k:STATE.apiKey,i:'🟡',r:'Backup 1'},
+      {l:'Mistral',k:STATE.mistralKey,i:'🔵',r:'Backup 2'},
+    ];
+    chain.innerHTML=items.map(function(x){return '<div style="display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--border)"><span style="font-size:18px">'+x.i+'</span><div style="flex:1"><div style="font-weight:500;color:var(--white)">'+x.l+'</div><div style="font-size:11px;color:var(--muted)">'+x.r+'</div></div><span class="badge '+(x.k?'badge-green':'badge-red')+'">'+(x.k?'✓ Configurée':'✗ Manquante')+'</span></div>';}).join('');
+  }
+  var s=document.getElementById('stat-api');
+  if(s) s.textContent=[STATE.apiKey,STATE.groqKey,STATE.mistralKey].filter(Boolean).length+'/3';
+}
+
+function toggleApiVis(){
+  STATE.apiVisible=!STATE.apiVisible;
+  var el=document.getElementById('api-display-val');
+  if(el) el.textContent=STATE.apiVisible&&STATE.apiKey?STATE.apiKey:(STATE.apiKey?STATE.apiKey.substring(0,8)+'••••••••••••':'Non configurée');
+}
+
+async function saveApiKey(){
+  var inp=document.getElementById('api-input'); if(!inp)return;
+  var v=inp.value.trim(); if(!v){showToast('Entrez une clé valide.','error');return;}
+  STATE.apiKey=v; localStorage.setItem('bvmac_key_gemini',v);
+  inp.value=''; renderAllApiDisplays(); showToast('Clé MADJINGAYE enregistrée.','success');
+}
+async function saveGroqKey(){
+  var inp=document.getElementById('groq-input'); if(!inp)return;
+  var v=inp.value.trim(); if(!v){showToast('Entrez une clé valide.','error');return;}
+  STATE.groqKey=v; localStorage.setItem('bvmac_key_groq',v);
+  inp.value=''; renderAllApiDisplays(); showToast('Clé Groq enregistrée.','success');
+}
+async function saveMistralKey(){
+  var inp=document.getElementById('mistral-input'); if(!inp)return;
+  var v=inp.value.trim(); if(!v){showToast('Entrez une clé valide.','error');return;}
+  STATE.mistralKey=v; localStorage.setItem('bvmac_key_mistral',v);
+  inp.value=''; renderAllApiDisplays(); showToast('Clé Mistral enregistrée.','success');
+}
+
+// ══════════════════════════════════════════
+// DASHBOARD
+// ══════════════════════════════════════════
+function refreshAdminDashboard(){
+  var entries=Object.entries(ACCOUNTS).filter(function(e){return e[0]!=='admin';});
+  var su=document.getElementById('stat-users'); if(su) su.textContent=entries.length;
+  var sa=document.getElementById('stat-analyses'); if(sa) sa.textContent=STATE.analyses.length;
+  var sc=document.getElementById('stat-cv'); if(sc) sc.textContent=STATE.totalCv;
+  var sapi=document.getElementById('stat-api'); if(sapi) sapi.textContent=[STATE.apiKey,STATE.groqKey,STATE.mistralKey].filter(Boolean).length+'/3';
+}
+
+// ══════════════════════════════════════════
+// CRITERIA
+// ══════════════════════════════════════════
+function renderAdminCriteria(){
+  var grid=document.getElementById('admin-crit-grid'); if(!grid)return;
+  var savedReqs = CRITERIA_CONFIG.requirements || {};
+  grid.innerHTML = DEFAULT_CRITERIA.map(function(c){
+    var a = STATE.selectedCriteria.has(c.id);
+    var req = savedReqs[c.id] !== undefined ? savedReqs[c.id] : (c.defaultReq||'');
+    return '<div class="crit-card-rich '+(a?'active':'')+'" data-critid="'+c.id+'">'
+      +'<div style="display:flex;align-items:flex-start;gap:10px;cursor:pointer;margin-bottom:'+(a?'10px':'0')+'" onclick="toggleCriterion(\''+c.id+'\',this.closest(\'.crit-card-rich\'))">'
+      +'<div class="crit-check" style="margin-top:2px;flex-shrink:0"></div>'
+      +'<div style="flex:1"><div class="crit-name">'+c.name+'</div><div class="crit-desc">'+c.desc+'</div></div>'
+      +'</div>'
+      +'<div class="crit-req-wrap" style="display:'+(a?'block':'none')+'">'
+      +'<label class="form-label" style="font-size:9px;margin-bottom:4px">EXIGENCES POUR L\'IA (utilisées dans le prompt d\'évaluation)</label>'
+      +'<textarea class="form-input crit-req-input" data-critid="'+c.id+'" style="min-height:58px;font-size:12px;line-height:1.5" placeholder="Décrivez les exigences précises…">'+esc(req)+'</textarea>'
+      +'</div>'
+      +'</div>';
+  }).join('');
+  if(CRITERIA_CONFIG.customList && Array.isArray(CRITERIA_CONFIG.customList)){
+    customCriteriaAdminList = CRITERIA_CONFIG.customList.map(function(c){ return typeof c==='string'?{name:c,req:''}:c; });
+  }
+  renderAdminCustomCritList();
+  renderJobsList();
+}
+
+function toggleCriterion(id, cardEl){
+  if(STATE.selectedCriteria.has(id)){
+    STATE.selectedCriteria.delete(id); cardEl.classList.remove('active');
+    var wrap=cardEl.querySelector('.crit-req-wrap'); if(wrap) wrap.style.display='none';
+    var hdr=cardEl.querySelector('[onclick]'); if(hdr) hdr.style.marginBottom='0';
+  } else {
+    STATE.selectedCriteria.add(id); cardEl.classList.add('active');
+    var wrap2=cardEl.querySelector('.crit-req-wrap'); if(wrap2) wrap2.style.display='block';
+    var hdr2=cardEl.querySelector('[onclick]'); if(hdr2) hdr2.style.marginBottom='10px';
+  }
+  // Sync immédiat dans CRITERIA_CONFIG et localStorage à chaque clic
+  CRITERIA_CONFIG.selected = [...STATE.selectedCriteria];
+  try{ localStorage.setItem('bvmac_criteria_bk', JSON.stringify(CRITERIA_CONFIG)); }catch(e){}
+  // Rafraîchir le panneau Analyser
+  refreshInlineCritDisplay('admin');
+  refreshInlineCritDisplay('user');
+}
+
+function addCustomCriterionAdmin(){
+  var nameEl=document.getElementById('new-crit-name'), reqEl=document.getElementById('new-crit-req');
+  if(!nameEl) return;
+  var name=nameEl.value.trim(), req=reqEl?reqEl.value.trim():'';
+  if(!name){showToast('Entrez un nom de critère.','error');nameEl.focus();return;}
+  if(customCriteriaAdminList.find(function(c){return c.name.toLowerCase()===name.toLowerCase();})){showToast('Ce critère existe déjà.','error');return;}
+  customCriteriaAdminList.push({name:name,req:req});
+  // Immédiatement sync dans CRITERIA_CONFIG pour que l'affichage Analyser soit à jour
+  CRITERIA_CONFIG.customList = customCriteriaAdminList.slice();
+  CRITERIA_CONFIG.custom = customCriteriaAdminList.map(function(c){return typeof c==='string'?c:c.name;}).join('\n');
+  // Sauvegarder en local immédiatement
+  try{ localStorage.setItem('bvmac_criteria_bk', JSON.stringify(CRITERIA_CONFIG)); }catch(e){}
+  nameEl.value=''; if(reqEl) reqEl.value='';
+  renderAdminCustomCritList();
+  // Rafraîchir l'affichage dans le panneau Analyser immédiatement
+  refreshInlineCritDisplay('admin');
+  refreshInlineCritDisplay('user');
+  showToast('Critère "'+name+'" ajouté et actif.','success');
+}
+
+function removeCustomCriterionAdmin(idx){
+  customCriteriaAdminList.splice(idx,1);
+  CRITERIA_CONFIG.customList = customCriteriaAdminList.slice();
+  CRITERIA_CONFIG.custom = customCriteriaAdminList.map(function(c){return typeof c==='string'?c:c.name;}).join('\n');
+  try{ localStorage.setItem('bvmac_criteria_bk', JSON.stringify(CRITERIA_CONFIG)); }catch(e){}
+  renderAdminCustomCritList();
+  refreshInlineCritDisplay('admin');
+  refreshInlineCritDisplay('user');
+}
+
+function renderAdminCustomCritList(){
+  var el=document.getElementById('admin-custom-crit-list'); if(!el) return;
+  if(!customCriteriaAdminList.length){
+    el.innerHTML='<div style="color:var(--muted);font-size:12px;font-style:italic;padding:4px 0">Aucun critère personnalisé. Ajoutez-en ci-dessus.</div>';return;
+  }
+  el.innerHTML=customCriteriaAdminList.map(function(c,i){
+    var nm=typeof c==='string'?c:c.name, rq=typeof c==='object'?(c.req||''):'';
+    return '<div style="border:1px solid var(--border);border-radius:8px;padding:14px 16px;margin-bottom:8px;background:var(--navy)">'
+      +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:'+(rq?'8px':'0')+'">'
+      +'<div style="display:flex;align-items:center;gap:8px"><div style="width:14px;height:14px;border-radius:3px;background:var(--gold);display:flex;align-items:center;justify-content:center;font-size:9px;color:var(--navy);font-weight:700">✓</div>'
+      +'<div class="crit-name" style="font-size:13px">'+esc(nm)+'</div></div>'
+      +'<button class="btn-sm btn-sm-red" onclick="removeCustomCriterionAdmin('+i+')">✕ Retirer</button></div>'
+      +(rq?'<div style="font-size:11px;color:var(--muted);background:rgba(201,151,28,0.06);border-left:2px solid var(--gold);padding:6px 10px;border-radius:0 4px 4px 0">'+esc(rq)+'</div>':'')
+      +'</div>';
+  }).join('');
+}
+
+async function saveCriteria(){
+  var savedReqs={};
+  document.querySelectorAll('.crit-req-input').forEach(function(inp){
+    var id=inp.getAttribute('data-critid'); if(id) savedReqs[id]=inp.value.trim();
+  });
+  CRITERIA_CONFIG.selected=[...STATE.selectedCriteria];
+  CRITERIA_CONFIG.requirements=savedReqs;
+  CRITERIA_CONFIG.customList=customCriteriaAdminList;
+  CRITERIA_CONFIG.custom=customCriteriaAdminList.map(function(c){return typeof c==='string'?c:c.name;}).join('\n');
+  localStorage.setItem('bvmac_criteria_bk',JSON.stringify(CRITERIA_CONFIG));
+  if(DB){ setSyncStatus('syncing'); await fbSet('criteria_config',CRITERIA_CONFIG); setSyncStatus('ok'); }
+  // Resync STATE.selectedCriteria depuis la source canonique CRITERIA_CONFIG
+  STATE.selectedCriteria = new Set(CRITERIA_CONFIG.selected||[]);
+  showToast('Critères enregistrés'+(DB?' et synchronisés.':' localement.'),'success');
+  renderUserCriteriaDisplay();
+  refreshInlineCritDisplay('admin');
+  refreshInlineCritDisplay('user');
+}
+
+function renderUserCriteriaDisplay(){
+  // For the static user crit display panel in criteria tab (if any)
+  var grid=document.getElementById('user-crit-display');
+  if(grid){
+    var active=[...STATE.selectedCriteria].map(function(id){return DEFAULT_CRITERIA.find(function(c){return c.id===id;});}).filter(Boolean);
+    var custom=(CRITERIA_CONFIG.customList||[]).map(function(c){return typeof c==='string'?{name:c,req:''}:c;});
+    grid.innerHTML=[
+      ...active.map(function(c){var req=(CRITERIA_CONFIG.requirements||{})[c.id]||(c.defaultReq||'');return '<div class="crit-card active" style="cursor:default"><div class="crit-check"></div><div><div class="crit-name">'+c.name+'</div>'+(req?'<div class="crit-desc" style="font-size:10px">'+esc(req.slice(0,80))+(req.length>80?'…':'')+'</div>':'')+'</div></div>';}),
+      ...custom.map(function(c){return '<div class="crit-card active" style="cursor:default"><div class="crit-check"></div><div><div class="crit-name">'+esc(c.name)+'</div>'+(c.req?'<div class="crit-desc" style="font-size:10px">'+esc(c.req.slice(0,80))+(c.req.length>80?'…':'')+'</div>':'')+'</div></div>';})
+    ].join('')||'<div style="color:var(--muted);font-size:13px">Aucun critère configuré.</div>';
+  }
+  // Also refresh the inline display in the analyze panel
+  refreshInlineCritDisplay('user');
+}
+
+// ══════════════════════════════════════════
+// JOBS
+// ══════════════════════════════════════════
+function renderJobsList(){
+  var el=document.getElementById('jobs-list'); if(!el)return;
+  if(!JOBS.length){el.innerHTML='<div style="color:var(--muted);font-size:13px;padding:12px 0">Aucun poste défini.</div>';return;}
+  el.innerHTML=JOBS.map(function(job,i){
+    var isActive=JOB.active&&JOB.title===job.title;
+    return '<div class="job-list-item'+(isActive?' job-active':'')+'"><div style="display:flex;align-items:center;gap:12px;flex:1;cursor:pointer" onclick="selectJob('+i+')"><div style="width:18px;height:18px;border-radius:50%;border:2px solid '+(isActive?'var(--gold)':'var(--border)')+';display:flex;align-items:center;justify-content:center;flex-shrink:0">'+(isActive?'<div style="width:8px;height:8px;border-radius:50%;background:var(--gold)"></div>':'')+'</div><div><div style="font-weight:500;color:var(--white)">'+esc(job.title)+'</div><div style="font-size:11px;color:var(--muted)">'+(job.description?job.description.slice(0,60)+'…':'Fiche de poste')+'</div></div></div><div style="display:flex;gap:8px">'+(isActive?'<span class="badge badge-green">Actif</span>':'')+'<button class="btn-sm btn-sm-red" onclick="deleteJob('+i+')">✕</button></div></div>';
+  }).join('');
+}
+
+function selectJob(i){
+  var job=JOBS[i]; if(!job)return;
+  if(JOB.active&&JOB.title===job.title){
+    JOB={active:false,title:'',description:'',fileBase64:null,fileName:''};
+    CRITERIA_CONFIG.jobTitle='';
+    localStorage.removeItem('bvmac_active_job');
+  } else {
+    JOB={active:true,title:job.title,description:job.description||'',fileBase64:null,fileName:''};
+    CRITERIA_CONFIG.jobTitle=job.title;
+    localStorage.setItem('bvmac_active_job',JSON.stringify({active:true,title:JOB.title,description:JOB.description,fileBase64:null,fileName:''}));
+  }
+  renderJobsList();
+  if(FB_CONNECTED){ setSyncStatus('syncing'); fbSet('bvmac/activeJob',{active:JOB.active,title:JOB.title,description:JOB.description,fileName:JOB.fileName||''}).then(function(){setSyncStatus('ok');}); }
+  showToast(JOB.active?'Poste actif : '+JOB.title:'Poste désélectionné.',JOB.active?'success':'');
+}
+
+async function saveJobs(){
+  localStorage.setItem('bvmac_jobs_bk',JSON.stringify(JOBS));
+  if(FB_CONNECTED){ setSyncStatus('syncing'); await fbSet('bvmac/jobs',JOBS); setSyncStatus('ok'); }
+}
+
+async function deleteJob(i){
+  var job=JOBS[i];
+  if(JOB.active&&JOB.title===job.title){JOB={active:false,title:'',description:'',fileBase64:null,fileName:''};CRITERIA_CONFIG.jobTitle='';localStorage.removeItem('bvmac_active_job');}
+  JOBS.splice(i,1);
+  await saveJobs();
+  renderJobsList();
+  showToast('Supprimé.','');
+}
+
+function openJobModal(){
+  var title=document.getElementById('admin-job-title').value.trim();
+  if(!title){showToast("Entrez l'intitulé.",'error');document.getElementById('admin-job-title').focus();return;}
+  document.getElementById('job-modal-error').classList.remove('visible');
+  openModal('modal-job');
+  setupJobFileDrop();
+}
+
+function switchJobTab(tab){
+  document.getElementById('job-input-text').style.display=tab==='text'?'block':'none';
+  document.getElementById('job-input-file').style.display=tab==='file'?'block':'none';
+  document.getElementById('job-tab-text').classList.toggle('active',tab==='text');
+  document.getElementById('job-tab-file').classList.toggle('active',tab==='file');
+}
+
+function setupJobFileDrop(){
+  var zone=document.getElementById('job-drop-zone'),input=document.getElementById('job-file-input');
+  if(!zone||zone._initialized)return;
+  zone._initialized=true;
+  zone.addEventListener('dragover',function(e){e.preventDefault();zone.classList.add('drag-over');});
+  zone.addEventListener('dragleave',function(){zone.classList.remove('drag-over');});
+  zone.addEventListener('drop',function(e){e.preventDefault();zone.classList.remove('drag-over');if(e.dataTransfer.files[0])handleJobFile(e.dataTransfer.files[0]);});
+  input.addEventListener('change',function(){if(input.files[0])handleJobFile(input.files[0]);});
+}
+
+function handleJobFile(file){
+  document.getElementById('job-file-label').textContent=file.name+' ('+(file.size/1024).toFixed(0)+' Ko)';
+  document.getElementById('job-file-name').style.display='flex';
+  var reader=new FileReader();
+  reader.onload=function(e){JOB.fileBase64=e.target.result.split(',')[1];JOB.fileName=file.name;};
+  reader.readAsDataURL(file);
+}
+
+function clearJobFile(){
+  JOB.fileBase64=null;JOB.fileName='';
+  document.getElementById('job-file-name').style.display='none';
+  document.getElementById('job-file-input').value='';
+}
+
+async function validateJob(){
+  var title=document.getElementById('admin-job-title').value.trim();
+  var isText=document.getElementById('job-tab-text').classList.contains('active');
+  var desc=isText?document.getElementById('job-desc-text').value.trim():'';
+  var errEl=document.getElementById('job-modal-error');
+  if(!title){errEl.textContent='Intitulé requis.';errEl.classList.add('visible');return;}
+  if(!desc&&!JOB.fileBase64){errEl.textContent='Ajoutez une description ou un document.';errEl.classList.add('visible');return;}
+  if(JOBS.find(function(j){return j.title.toLowerCase()===title.toLowerCase();})){errEl.textContent='Ce poste existe déjà.';errEl.classList.add('visible');return;}
+  JOBS.push({title:title,description:desc,fileName:JOB.fileName||''});
+  await saveJobs();
+  JOB.fileBase64=null;JOB.fileName='';
+  document.getElementById('admin-job-title').value='';
+  var d=document.getElementById('job-desc-text'); if(d) d.value='';
+  clearJobFile();
+  renderJobsList();
+  closeModal('modal-job');
+  showToast('Poste ajouté : '+title,'success');
+}
+
+// ══════════════════════════════════════════
+// USERS
+// ══════════════════════════════════════════
+function renderUsersTable(){
+  var entries=Object.entries(ACCOUNTS).filter(function(e){return e[0]!=='admin';});
+  var badge=document.getElementById('users-count-badge'); if(badge) badge.textContent=entries.length;
+  var su=document.getElementById('stat-users'); if(su) su.textContent=entries.length;
+  var tbody=document.getElementById('users-tbody'); if(!tbody)return;
+  if(!entries.length){tbody.innerHTML='<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:32px">Aucun utilisateur.</td></tr>';return;}
+  tbody.innerHTML=entries.map(function(e){
+    var u=e[0],acc=e[1];
+    return '<tr><td><div style="display:flex;align-items:center;gap:10px"><div class="user-avatar">'+acc.name[0].toUpperCase()+'</div><div><div style="font-weight:500;color:var(--white)">'+esc(acc.name)+'</div><div style="font-size:11px;color:var(--muted)">'+esc(u)+'</div></div></div></td><td><code style="font-family:JetBrains Mono,monospace;font-size:12px;color:var(--muted)">'+esc(u)+'</code></td><td>'+esc(acc.dept||'—')+'</td><td><span class="badge '+(acc.active?'badge-green':'badge-red')+'">'+(acc.active?'Actif':'Inactif')+'</span></td><td><div style="display:flex;gap:8px"><button class="btn-sm btn-sm-blue" onclick="toggleUserStatus(\''+u+'\')">'+((acc.active)?'Désactiver':'Activer')+'</button><button class="btn-sm btn-sm-red" onclick="deleteUser(\''+u+'\')">Supprimer</button></div></td></tr>';
+  }).join('');
+}
+
+async function addUser(){
+  var name=document.getElementById('nu-name').value.trim();
+  var username=document.getElementById('nu-username').value.trim();
+  var password=document.getElementById('nu-password').value;
+  var dept=document.getElementById('nu-dept').value.trim();
+  var errEl=document.getElementById('add-user-error');
+  if(!name||!username||!password){errEl.textContent='Champs obligatoires manquants.';errEl.classList.add('visible');return;}
+  if(ACCOUNTS[username]){errEl.textContent='Identifiant déjà utilisé.';errEl.classList.add('visible');return;}
+  ACCOUNTS[username]={password:password,role:'user',name:name,dept:dept,active:true};
+  if(FB_CONNECTED){ setSyncStatus('syncing'); await fbSet('bvmac/accounts',ACCOUNTS); setSyncStatus('ok'); }
+  closeModal('modal-add-user');
+  renderUsersTable();
+  refreshAdminDashboard();
+  ['nu-name','nu-username','nu-password','nu-dept'].forEach(function(id){var el=document.getElementById(id);if(el)el.value='';});
+  errEl.classList.remove('visible');
+  showToast(name+' créé.','success');
+}
+
+async function toggleUserStatus(u){
+  ACCOUNTS[u].active=!ACCOUNTS[u].active;
+  if(FB_CONNECTED){ setSyncStatus('syncing'); await fbSet('bvmac/accounts',ACCOUNTS); setSyncStatus('ok'); }
+  renderUsersTable();
+  showToast('Statut mis à jour.','success');
+}
+
+async function deleteUser(u){
+  if(!confirm('Supprimer "'+u+'" ?'))return;
+  delete ACCOUNTS[u];
+  if(FB_CONNECTED){ setSyncStatus('syncing'); await fbSet('bvmac/accounts',ACCOUNTS); setSyncStatus('ok'); }
+  renderUsersTable();
+  refreshAdminDashboard();
+  showToast('Utilisateur supprimé.','');
+}
+
+// Legacy stubs (kept for safety)
+function addCustomCriterion(){}
+function removeCustomCriterion(){}
+function renderCustomCritGrid(){}
+
+// ══════════════════════════════════════════
+// QUALIFIED CANDIDATES SYSTEM
+// ══════════════════════════════════════════
+
+function isQualified(candidate){
+  return QUALIFIED_CANDIDATES.some(function(q){ return q.filename===candidate.filename && q.name===candidate.name; });
+}
+
+function toggleQualify(idx){
+  var r = STATE.results[idx]; if(!r) return;
+  if(isQualified(r)){
+    QUALIFIED_CANDIDATES = QUALIFIED_CANDIDATES.filter(function(q){ return !(q.filename===r.filename && q.name===r.name); });
+    showToast(r.name+' retiré des qualifiés.','');
+  } else {
+    var entry = Object.assign({}, r, {
+      qualifiedAt: new Date().toLocaleDateString('fr-FR')+' '+new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}),
+      seriesLabel: JOB.title||'Série '+new Date().toLocaleDateString('fr-FR'),
+      isQualified: true
+    });
+    QUALIFIED_CANDIDATES.push(entry);
+    showToast('⭐ '+r.name+' qualifié !','success');
+  }
+  saveQualifiedLocal();
+  updateQualifiedBadge();
+  // Re-render results to update button state
+  var role = STATE.currentRole==='admin'?'admin':'user';
+  var criteria = Object.keys(r.criteriaScores||{});
+  renderResults(role==='admin'?'admin-analyze-container':'user-results-container', criteria, role);
+}
+
+function saveQualifiedLocal(){
+  try{ localStorage.setItem('bvmac_qualified', JSON.stringify(QUALIFIED_CANDIDATES)); }catch(e){}
+}
+
+function loadQualifiedLocal(){
+  try{ var d=localStorage.getItem('bvmac_qualified'); if(d) QUALIFIED_CANDIDATES=JSON.parse(d)||[]; }catch(e){}
+}
+
+function updateQualifiedBadge(){
+  var badge = document.getElementById('qualified-count-badge'); if(badge) badge.textContent=QUALIFIED_CANDIDATES.length;
+  var inline = document.getElementById('qualified-count-inline'); if(inline) inline.textContent=QUALIFIED_CANDIDATES.length;
+  var banner = document.getElementById('final-mode-banner');
+  if(banner && IS_FINAL_ANALYSIS){
+    var sub = banner.querySelector('div div:last-child');
+    if(sub) sub.textContent = 'Les '+QUALIFIED_CANDIDATES.length+' candidats qualifiés sont pré-chargés. L\'IA comparera uniquement ces profils.';
+  }
+}
+
+function renderQualifiedPanel(){
+  var container = document.getElementById('qualified-list-container'); if(!container) return;
+  updateQualifiedBadge();
+  if(!QUALIFIED_CANDIDATES.length){
+    container.innerHTML='<div class="panel" style="text-align:center;padding:60px">'
+      +'<div style="font-size:48px;margin-bottom:16px">⭐</div>'
+      +'<div style="color:var(--muted);margin-bottom:8px">Aucun candidat qualifié pour le moment.</div>'
+      +'<div style="font-size:12px;color:rgba(143,163,190,0.5)">Après une analyse, cochez des candidats dans les résultats pour les qualifier.</div>'
+      +'</div>';
+    return;
+  }
+  // Group by series
+  var series = {};
+  QUALIFIED_CANDIDATES.forEach(function(q,i){
+    var s = q.seriesLabel||'Série 1';
+    if(!series[s]) series[s]=[];
+    series[s].push({q:q, globalIdx:i});
+  });
+  var html='<div style="margin-bottom:16px;padding:14px 18px;background:rgba(201,151,28,0.07);border:1px solid rgba(201,151,28,0.2);border-radius:10px;font-size:13px;color:var(--gold2)">'
+    +'⭐ <strong>'+QUALIFIED_CANDIDATES.length+' candidat(s) qualifié(s)</strong> — prêts pour l\'analyse finale'
+    +'</div>';
+  Object.keys(series).forEach(function(seriesName){
+    var items = series[seriesName];
+    html += '<div style="margin-bottom:24px">'
+      +'<div style="font-size:10px;text-transform:uppercase;letter-spacing:0.15em;color:var(--gold);font-family:JetBrains Mono,monospace;margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid rgba(201,151,28,0.2)">📂 '+esc(seriesName)+'</div>';
+    items.forEach(function(item, rank){
+      var q = item.q, gi = item.globalIdx;
+      var score = parseFloat(q.totalScore)||0;
+      var col = score>=15?'var(--success)':score>=10?'var(--gold)':'var(--danger)';
+      html += '<div class="qualified-card">'
+        +'<div style="font-family:Playfair Display,serif;font-size:20px;color:var(--gold);min-width:36px;text-align:center">'+(rank+1)+'</div>'
+        +'<div style="flex:1">'
+        +'<div class="qc-name">'+esc(q.name||'—')+'</div>'
+        +'<div class="qc-meta">'+esc(q.currentPosition||'')+(q.education?' · '+esc(q.education):'')+(q.yearsExp?' · '+esc(q.yearsExp):'')+'</div>'
+        +'<div class="qc-badge-qualified">⭐ QUALIFIÉ</div>'
+        +(q.qualifiedAt?'<div style="font-size:10px;color:rgba(143,163,190,0.5);margin-top:3px">Qualifié le '+esc(q.qualifiedAt)+'</div>':'')
+        +'</div>'
+        +'<div style="text-align:right">'
+        +'<div style="font-family:Playfair Display,serif;font-size:26px;font-weight:700;color:'+col+'">'+score.toFixed(2)+'</div>'
+        +'<div style="font-size:10px;color:var(--muted)">/10</div>'
+        +'<button class="btn-sm btn-sm-red" style="margin-top:8px;font-size:11px" onclick="removeQualified('+gi+')">✕ Retirer</button>'
+        +'</div>'
+        +'</div>';
+    });
+    html += '</div>';
+  });
+  container.innerHTML = html;
+}
+
+function removeQualified(idx){
+  var name = QUALIFIED_CANDIDATES[idx]?QUALIFIED_CANDIDATES[idx].name:'';
+  QUALIFIED_CANDIDATES.splice(idx,1);
+  saveQualifiedLocal();
+  renderQualifiedPanel();
+  updateQualifiedBadge();
+  if(name) showToast(name+' retiré des qualifiés.','');
+}
+
+function clearAllQualified(){
+  if(!QUALIFIED_CANDIDATES.length){showToast('Liste déjà vide.','');return;}
+  if(!confirm('Vider toute la liste des qualifiés ?')) return;
+  QUALIFIED_CANDIDATES=[];
+  IS_FINAL_ANALYSIS=false;
+  saveQualifiedLocal();
+  renderQualifiedPanel();
+  updateQualifiedBadge();
+  showToast('Liste des qualifiés vidée.','');
+}
+
+function launchFinalAnalysis(){
+  if(!QUALIFIED_CANDIDATES.length){showToast('Aucun candidat qualifié.','error');return;}
+  IS_FINAL_ANALYSIS=true;
+  adminTab('analyze', document.querySelector('#page-admin .nav-item:nth-child(8)'));
+  buildAnalyzePanel('admin');
+  showToast('Mode Analyse Finale : '+QUALIFIED_CANDIDATES.length+' qualifiés chargés.','success');
+}
+function renderHistory(){
+  var tbody=document.getElementById('history-tbody'); if(!tbody)return;
+  if(!STATE.analyses.length){tbody.innerHTML='<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:32px">Aucune analyse.</td></tr>';return;}
+  tbody.innerHTML=[...STATE.analyses].reverse().map(function(a){return '<tr><td>'+esc(a.date||'')+'</td><td>'+esc(a.user||'')+'</td><td>'+esc(a.job||'—')+'</td><td>'+a.count+'</td><td>'+a.maxScore+'</td></tr>';}).join('');
+}
+
+// ══════════════════════════════════════════
+// ANALYZE PANEL
+// ══════════════════════════════════════════
+function buildAnalyzePanel(role){
+  var c=document.getElementById(role+'-analyze-container'); if(!c)return;
+
+  // Criteria display — always read fresh from CRITERIA_CONFIG
+  var critHtml='<div class="panel"><div class="panel-title">⚙️ Critères actifs'
+    +(role==='admin'?' <span style="font-size:11px;font-weight:400;color:var(--muted)">(configurables dans l\'onglet Critères)</span>':'')
+    +'</div><div id="'+role+'-inline-crit-display"></div></div>';
+
+  // Final analysis toggle (admin only)
+  var finalToggleHtml = role==='admin'
+    ? '<div class="final-mode-banner" id="final-mode-banner" style="display:'+(IS_FINAL_ANALYSIS?'flex':'none')+'">'
+      +'<span style="font-size:28px">🏆</span>'
+      +'<div><div style="font-weight:600;color:var(--gold);margin-bottom:3px">Mode Analyse Finale activé</div>'
+      +'<div style="font-size:12px;color:var(--muted)">Les '+QUALIFIED_CANDIDATES.length+' candidats qualifiés sont pré-chargés. L\'IA comparera uniquement ces profils.</div>'
+      +'</div></div>'
+    : '';
+
+  c.innerHTML=
+    finalToggleHtml
+    +'<div class="panel"><div class="panel-title">📁 Import des CV</div>'
+    +(role==='admin'
+      ? '<div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;padding:14px 18px;background:rgba(201,151,28,0.06);border:1px solid rgba(201,151,28,0.2);border-radius:8px">'
+        +'<label style="display:flex;align-items:center;gap:10px;cursor:pointer;flex:1">'
+        +'<div class="qualify-checkbox'+(IS_FINAL_ANALYSIS?' checked':'')+'" id="final-mode-toggle" onclick="toggleFinalMode()"></div>'
+        +'<div><div style="font-weight:600;color:var(--white);font-size:13px">🏆 Analyse finale des qualifiés</div>'
+        +'<div style="font-size:11px;color:var(--muted)">Pré-charge automatiquement les candidats qualifiés (<span id="qualified-count-inline">'+QUALIFIED_CANDIDATES.length+'</span> en attente)</div>'
+        +'</div></label>'
+        +'<button class="btn-sm btn-sm-gold" onclick="adminTab(\'qualified\',document.querySelector(\'#page-admin .nav-item:nth-child(9)\'))">Voir qualifiés →</button>'
+        +'</div>'
+      : '')
+    +'<div class="drop-zone" id="'+role+'-drop"><input type="file" id="'+role+'-file-input" multiple accept=".pdf,.txt,.docx"><span class="dz-icon">📁</span><p class="dz-title">Glissez vos CV ici</p><p class="dz-sub">PDF · DOCX · TXT · Max 50</p></div>'
+    +'<div class="file-pills" id="'+role+'-file-pills"></div></div>'
+    +critHtml
+    +'<div class="panel"><div class="panel-title">🎯 Options de sélection</div>'
+    +'<div style="display:flex;align-items:center;gap:20px;flex-wrap:wrap">'
+    +'<div><label class="form-label">Nombre de candidats à retenir</label>'
+    +'<div style="display:flex;align-items:center;gap:10px"><input class="form-input" type="number" id="'+role+'-retain-count" min="1" max="50" placeholder="Ex: 3" style="width:100px"><span style="font-size:12px;color:var(--muted)">Laissez vide pour tout afficher</span></div></div>'
+    +'</div></div>'
+    +'<div id="'+role+'-progress-wrap" style="display:none"><div class="panel"><div class="panel-title">⏳ Analyse en cours…</div>'
+    +'<div class="progress-label"><span id="'+role+'-progress-text">Init…</span><span id="'+role+'-progress-count">0 / 0</span></div>'
+    +'<div class="progress-bar-wrap"><div class="progress-bar-fill" id="'+role+'-progress-bar" style="width:0%"></div></div>'
+    +'<div class="progress-log" id="'+role+'-log" style="margin-top:12px"></div>'
+    +'</div></div>'
+    +'<div id="'+role+'-hint-box" style="margin-bottom:12px"></div>'
+    +'<button class="btn-primary" style="max-width:280px" id="'+role+'-analyze-btn" onclick="startAnalysis(\''+role+'\')">🔍 Lancer l\'analyse</button>';
+  setupFileDrop(role);
+  refreshInlineCritDisplay(role);
+}
+
+// ── Refresh the inline criteria display (called after login and after criteria save) ──
+function refreshInlineCritDisplay(role){
+  var el=document.getElementById(role+'-inline-crit-display'); if(!el)return;
+  var active=[...STATE.selectedCriteria]
+    .map(function(id){return DEFAULT_CRITERIA.find(function(c){return c.id===id;});})
+    .filter(Boolean);
+  var custom=(CRITERIA_CONFIG.customList||[])
+    .map(function(c){return typeof c==='string'?{name:c,req:''}:c;});
+  var all=[
+    ...active.map(function(c){return {name:c.name, req:(CRITERIA_CONFIG.requirements||{})[c.id]||c.defaultReq||''};}),
+    ...custom
+  ];
+  if(!all.length){
+    el.innerHTML='<div style="color:var(--muted);font-size:13px;padding:8px 0">Aucun critère sélectionné. Configurez-les dans l\'onglet <strong style="color:var(--gold)">Critères</strong>.</div>';
+    return;
+  }
+  el.innerHTML='<div class="crit-grid">'+all.map(function(c){
+    var nm=typeof c==='string'?c:c.name;
+    var rq=typeof c==='object'?(c.req||''):'';
+    return '<div class="crit-card active" style="cursor:default">'
+      +'<div class="crit-check"></div>'
+      +'<div><div class="crit-name">'+esc(nm)+'</div>'
+      +(rq?'<div class="crit-desc" style="font-size:10px">'+esc(rq.slice(0,70))+(rq.length>70?'…':'')+'</div>':'')
+      +'</div></div>';
+  }).join('')+'</div>';
+}
+
+function renderInlineAdminCriteria(){ refreshInlineCritDisplay('admin'); }
+
+// ── Final analysis mode toggle ──
+function toggleFinalMode(){
+  IS_FINAL_ANALYSIS = !IS_FINAL_ANALYSIS;
+  var toggle = document.getElementById('final-mode-toggle');
+  if(toggle){ toggle.classList.toggle('checked', IS_FINAL_ANALYSIS); }
+  var banner = document.getElementById('final-mode-banner');
+  if(banner) banner.style.display = IS_FINAL_ANALYSIS ? 'flex' : 'none';
+
+  STATE.uploadedFiles = [];
+  renderFilePills('admin');
+
+  if(IS_FINAL_ANALYSIS && QUALIFIED_CANDIDATES.length > 0){
+    showToast('Mode Finale : '+QUALIFIED_CANDIDATES.length+' candidats qualifiés pré-chargés','success');
+    var pills = document.getElementById('admin-file-pills');
+    if(pills){
+      pills.innerHTML = '<div style="margin-top:10px;padding:10px 14px;background:rgba(201,151,28,0.08);border:1px solid rgba(201,151,28,0.2);border-radius:8px;font-size:12px;color:var(--gold2)">'
+        +'⭐ <strong>'+QUALIFIED_CANDIDATES.length+' candidats qualifiés</strong> seront analysés lors du lancement. Leurs données sont déjà chargées en mémoire.'
+        +'</div>';
+    }
+  } else if(IS_FINAL_ANALYSIS && QUALIFIED_CANDIDATES.length === 0){
+    IS_FINAL_ANALYSIS = false;
+    if(toggle) toggle.classList.remove('checked');
+    if(banner) banner.style.display = 'none';
+    showToast('Aucun candidat qualifié. Qualifiez d\'abord des candidats.','error');
+  } else {
+    showToast('Mode normal activé.','');
+  }
+}
+
+// ══════════════════════════════════════════
+// FILES
+// ══════════════════════════════════════════
+function setupFileDrop(role){
+  var zone=document.getElementById(role+'-drop'),input=document.getElementById(role+'-file-input');
+  if(!zone||!input)return;
+  zone.addEventListener('dragover',function(e){e.preventDefault();zone.classList.add('drag-over');});
+  zone.addEventListener('dragleave',function(){zone.classList.remove('drag-over');});
+  zone.addEventListener('drop',function(e){e.preventDefault();zone.classList.remove('drag-over');addFiles([...e.dataTransfer.files],role);});
+  input.addEventListener('change',function(){addFiles([...input.files],role);input.value='';});
+}
+
+function addFiles(files,role){
+  var added=0,skipped=0;
+  files.forEach(function(f){
+    if(STATE.uploadedFiles.length>=50){skipped++;return;}
+    var ext=f.name.split('.').pop().toLowerCase();
+    if(!['pdf','txt','docx'].includes(ext)){showToast('Format non supporté : '+f.name,'error');return;}
+    if(!STATE.uploadedFiles.find(function(x){return x.name===f.name;})){STATE.uploadedFiles.push(f);added++;}
+  });
+  if(skipped>0)showToast('Limite 50 — '+skipped+' ignoré(s).','error');
+  else if(added>0)showToast(added+' CV ajouté(s) — Total : '+STATE.uploadedFiles.length+'/50','success');
+  renderFilePills(role);
+}
+function removeFile(name,role){STATE.uploadedFiles=STATE.uploadedFiles.filter(function(f){return f.name!==name;});renderFilePills(role);}
+function renderFilePills(role){
+  var pills=document.getElementById(role+'-file-pills'); if(!pills)return;
+  pills.innerHTML=STATE.uploadedFiles.map(function(f){
+    var ext=f.name.split('.').pop().toLowerCase();
+    var icon=ext==='pdf'?'📄':ext==='docx'?'📝':'📃';
+    return '<div class="file-pill">'+icon+' <span>'+esc(f.name)+'</span><span style="color:var(--muted);font-family:JetBrains Mono,monospace;font-size:10px">'+(f.size/1024).toFixed(0)+'Ko</span><span class="fp-remove" onclick="removeFile(\''+esc(f.name)+'\',\''+role+'\')">×</span></div>';
+  }).join('');
+}
+
+// ══════════════════════════════════════════
+// PDF EXTRACTION
+// ══════════════════════════════════════════
+async function extractPdfText(file){
+  if(typeof pdfjsLib!=='undefined'){
+    try{
+      var buf=await file.arrayBuffer();
+      var pdf=await pdfjsLib.getDocument({data:buf,verbosity:0}).promise;
+      var pages=[];
+      for(var p=1;p<=Math.min(pdf.numPages,20);p++){
+        var page=await pdf.getPage(p);
+        var content=await page.getTextContent({normalizeWhitespace:true});
+        var text=content.items.map(function(i){return i.str;}).join(' ');
+        pages.push(text);
+      }
+      var result=pages.join('\n').replace(/\s{3,}/g,' ').trim();
+      if(result.length>50)return result;
+    }catch(e){}
+  }
+  try{
+    var text2=await new Promise(function(res,rej){var r=new FileReader();r.onload=function(e){res(e.target.result||'');};r.onerror=function(){rej(new Error('fail'));};r.readAsText(file,'UTF-8');});
+    var extracted=text2.replace(/stream[\s\S]*?endstream/gi,' ').replace(/[^\x20-\x7EÀ-ÿ\n\r]/g,' ').replace(/\s{4,}/g,' ').trim();
+    var lines=extracted.split('\n').filter(function(l){return l.trim().length>3;});
+    var result2=lines.join('\n').slice(0,12000);
+    if(result2.length>100)return result2;
+  }catch(e2){}
+  return '[PDF non lisible — probablement scanné]';
+}
+
+async function extractDocxText(file){
+  try{
+    var buf=await file.arrayBuffer();var bytes=new Uint8Array(buf);var decoder=new TextDecoder('utf-8',{fatal:false});var raw=decoder.decode(bytes);
+    var s=raw.indexOf('<w:body'),e=raw.lastIndexOf('</w:body>');
+    if(s!==-1&&e!==-1){return raw.slice(s,e+9).replace(/<w:p[ >]/g,'\n').replace(/<[^>]+>/g,'').replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/[ \t]+/g,' ').replace(/\n{3,}/g,'\n\n').trim().slice(0,10000);}
+    return '[DOCX vide]';
+  }catch(e){return '[Erreur DOCX]';}
+}
+
+// ══════════════════════════════════════════
+// ANALYSIS ENGINE
+// ══════════════════════════════════════════
+function sleep(ms){return new Promise(function(r){setTimeout(r,ms);});}
+function logLine(logEl,msg,type){if(!logEl)return;var span=document.createElement('span');span.className='log-line log-'+(type||'info');span.textContent=msg;logEl.appendChild(span);logEl.scrollTop=logEl.scrollHeight;}
+function setProgress(role,cur,tot,label){var pct=tot>0?Math.round(cur/tot*100):0;var b=document.getElementById(role+'-progress-bar'),t=document.getElementById(role+'-progress-text'),c=document.getElementById(role+'-progress-count');if(b)b.style.width=pct+'%';if(t)t.textContent=label||'…';if(c)c.textContent=cur+' / '+tot;}
+
+async function startAnalysis(role){
+  var btn=document.getElementById(role+'-analyze-btn');
+  var hintBox=document.getElementById(role+'-hint-box');
+  if(hintBox)hintBox.innerHTML='';
+
+  if(!STATE.apiKey&&!STATE.groqKey&&!STATE.mistralKey){
+    if(hintBox)hintBox.innerHTML='<div class="err-box">❌ Aucune clé API. Configurez-en une dans <strong>Configuration</strong>.</div>';return;
+  }
+
+  // In final mode, synthesize "CV text" from the qualified candidates' stored data
+  if(IS_FINAL_ANALYSIS && role==='admin'){
+    if(!QUALIFIED_CANDIDATES.length){
+      if(hintBox)hintBox.innerHTML='<div class="err-box">❌ Aucun candidat qualifié. Qualifiez d\'abord des candidats.</div>';return;
+    }
+    // Build synthetic CV files from qualified candidate summaries
+    STATE.uploadedFiles = QUALIFIED_CANDIDATES.map(function(q){
+      var synth='CANDIDAT : '+q.name+'\n'
+        +'POSTE ACTUEL : '+(q.currentPosition||'N/A')+'\n'
+        +'FORMATION : '+(q.education||'N/A')+'\n'
+        +'EXPÉRIENCE : '+(q.yearsExp||'N/A')+'\n'
+        +'POINTS FORTS : '+(q.strengths||[]).join(', ')+'\n'
+        +'POINTS D\'ATTENTION : '+(q.weaknesses||[]).join(', ')+'\n'
+        +'COMPÉTENCES CLÉS : '+(q.keySkills||[]).join(', ')+'\n'
+        +'SYNTHÈSE INITIALE : '+(q.summary||'')+'\n'
+        +'ADÉQUATION POSTE : '+(q.jobFit||'')+'\n'
+        +'SCORE INITIAL : '+(q.totalScore||0)+'/20\n'
+        +'QUALIFIÉ LE : '+(q.qualifiedAt||'')+' (série : '+(q.seriesLabel||'')+')';
+      var blob = new Blob([synth], {type:'text/plain'});
+      var file = new File([blob], (q.filename||q.name.replace(/\s/g,'_')+'.txt'), {type:'text/plain'});
+      return file;
+    });
+  } else if(!STATE.uploadedFiles.length){
+    showToast('Importez au moins un CV.','error');return;
+  }
+
+  if(!JOB.active||!JOB.title){
+    if(hintBox)hintBox.innerHTML='<div class="warn-box">⚠ Activez un poste dans <strong>Critères → Postes à pourvoir</strong>.</div>';
+    showToast('Sélectionnez un poste actif.','error');return;
+  }
+
+  // ══════════════════════════════════════════════════════════════════════
+  // CONSTRUCTION DÉFINITIVE DES CRITÈRES
+  // Stratégie : lire depuis TOUTES les sources et prendre l'union maximale
+  // ══════════════════════════════════════════════════════════════════════
+
+  // SOURCE A : DOM — cartes actives dans l'onglet Critères (même si hidden)
+  var idsFromDOM = [];
+  // Chercher dans TOUS les panels, même cachés (display:none ne bloque pas querySelectorAll)
+  document.querySelectorAll('.crit-card-rich.active[data-critid]').forEach(function(el){
+    var id = el.getAttribute('data-critid');
+    if(id && idsFromDOM.indexOf(id) === -1) idsFromDOM.push(id);
+  });
+
+  // SOURCE B : STATE.selectedCriteria (coches en mémoire)
+  var idsFromState = [...STATE.selectedCriteria];
+
+  // SOURCE C : CRITERIA_CONFIG.selected (dernière sauvegarde)
+  var idsFromConfig = CRITERIA_CONFIG.selected || [];
+
+  // UNION des 3 sources — on ne perd aucune coche
+  var allIds = [];
+  [idsFromDOM, idsFromState, idsFromConfig].forEach(function(src){
+    src.forEach(function(id){
+      if(id && allIds.indexOf(id) === -1) allIds.push(id);
+    });
+  });
+
+  // Mettre à jour STATE et CRITERIA_CONFIG avec cette union
+  STATE.selectedCriteria = new Set(allIds);
+  CRITERIA_CONFIG.selected = allIds;
+
+  // Récupérer les exigences depuis les textareas du DOM si présents
+  var liveReqs = Object.assign({}, CRITERIA_CONFIG.requirements||{});
+  document.querySelectorAll('.crit-req-input').forEach(function(inp){
+    var id = inp.getAttribute('data-critid');
+    if(id && inp.value.trim()) liveReqs[id] = inp.value.trim();
+  });
+  CRITERIA_CONFIG.requirements = liveReqs;
+
+  // Sauvegarder en local pour persistance
+  try{ localStorage.setItem('bvmac_criteria_bk', JSON.stringify(CRITERIA_CONFIG)); }catch(e){}
+
+  // Construire criteriaWithReqs depuis l'union finale
+  var criteriaWithReqs = allIds.map(function(id){
+    var def = DEFAULT_CRITERIA.find(function(c){ return c.id === id; });
+    if(!def) return null;
+    return { name: def.name, req: liveReqs[id] || def.defaultReq || '' };
+  }).filter(Boolean);
+
+  // Ajouter les critères personnalisés (toujours actifs)
+  var customList = (CRITERIA_CONFIG.customList||[]).map(function(c){
+    return typeof c==='string' ? {name:c, req:''} : {name:(c.name||'').trim(), req:(c.req||'').trim()};
+  }).filter(function(c){ return c.name; });
+
+  customList.forEach(function(c){
+    if(!criteriaWithReqs.find(function(x){
+      return x.name.toLowerCase() === c.name.toLowerCase();
+    })) criteriaWithReqs.push(c);
+  });
+
+  var criteria = criteriaWithReqs.map(function(c){ return c.name; });
+
+  if(!criteria.length){
+    showToast('Sélectionnez au moins un critère dans l\'onglet Critères.','error');
+    return;
+  }
+
+  // Log de confirmation complet
+  logLine(logEl,'','info');
+  logLine(logEl,'━━━ CRITÈRES RETENUS ('+criteria.length+') ━━━','ok');
+  criteria.forEach(function(c,i){ logLine(logEl,'  '+(i+1)+'. '+c,'info'); });
+  logLine(logEl,'','info');
+
+  // Get retain count
+  var retainInput = document.getElementById(role+'-retain-count');
+  var retainCount = retainInput && retainInput.value ? parseInt(retainInput.value)||0 : 0;
+  STATE.retainCount = retainCount;
+
+  if(btn){btn.disabled=true;btn.innerHTML='<span class="spinner"></span> Analyse en cours…';}
+  var progWrap=document.getElementById(role+'-progress-wrap'),logEl=document.getElementById(role+'-log');
+  if(progWrap)progWrap.style.display='block';
+  if(logEl)logEl.innerHTML='';
+  STATE.results=[];
+
+  logLine(logEl,'Extraction du texte…','info');
+  setProgress(role,0,STATE.uploadedFiles.length,'Extraction…');
+  var cvFiles=[];
+  for(var i=0;i<STATE.uploadedFiles.length;i++){
+    var file=STATE.uploadedFiles[i];
+    var ext=file.name.split('.').pop().toLowerCase();
+    logLine(logEl,'['+(i+1)+'/'+STATE.uploadedFiles.length+'] '+file.name+'…','info');
+    try{
+      var text='';
+      if(ext==='pdf'){text=await extractPdfText(file);logLine(logEl,'  ✅ '+text.length+' chars','ok');}
+      else if(ext==='docx'){text=await extractDocxText(file);logLine(logEl,'  ✅ DOCX extrait','ok');}
+      else{text=await new Promise(function(res,rej){var r=new FileReader();r.onload=function(e){res(e.target.result||'');};r.onerror=function(){rej(new Error('fail'));};r.readAsText(file,'UTF-8');});logLine(logEl,'  ✅ TXT lu','ok');}
+      cvFiles.push({name:file.name,data:text});
+    }catch(e){logLine(logEl,'  ⚠ Erreur : '+e.message,'warn');}
+    setProgress(role,i+1,STATE.uploadedFiles.length,'Extraction…');
+  }
+
+  if(!cvFiles.length){showToast('Aucun CV lisible.','error');if(btn){btn.disabled=false;btn.innerHTML='🔍 Lancer l\'analyse';}return;}
+
+  logLine(logEl,'','info');
+  logLine(logEl,'Analyse IA — '+cvFiles.length+' CV','info');
+  logLine(logEl,'Poste : '+JOB.title,'ok');
+  logLine(logEl,'Critères : '+criteria.join(' · '),'info');
+  if(retainCount>0) logLine(logEl,'Objectif : retenir les '+retainCount+' meilleurs','info');
+
+  var allResults=[];
+  for(var j=0;j<cvFiles.length;j++){
+    var cv=cvFiles[j];
+    logLine(logEl,'','info');
+    logLine(logEl,'['+(j+1)+'/'+cvFiles.length+'] Analyse de '+cv.name+'…','info');
+    setProgress(role,j+1,cvFiles.length,'Analyse IA…');
+    try{
+      var result=await analyzeOneCv(cv,criteriaWithReqs,logEl);
+      allResults.push(result);
+      logLine(logEl,'  Score : '+result.totalScore+'/20 — '+result.recommendation,'ok');
+    }catch(e){logLine(logEl,'  ⚠ Erreur : '+e.message,'warn');}
+    if(j<cvFiles.length-1)await sleep(800);
+  }
+
+  allResults.sort(function(a,b){return (b.totalScore||0)-(a.totalScore||0);});
+
+  // Apply retain count: override recommendation for top N
+  if(retainCount>0){
+    allResults.forEach(function(r,idx){
+      if(idx<retainCount) r.recommendation='À retenir';
+      else if(idx<retainCount*2) r.recommendation='À considérer';
+      else r.recommendation='Non retenu';
+    });
+  }
+
+  STATE.results=allResults;
+  STATE.retainCount=retainCount;
+  STATE.totalCv+=cvFiles.length;
+
+  // Save to history
+  var entry={date:new Date().toLocaleDateString('fr-FR')+' '+new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}),timestamp:Date.now(),user:STATE.currentUser,job:JOB.title||'—',count:allResults.length,maxScore:allResults.length>0?allResults[0].totalScore:0,retainCount:retainCount};
+  STATE.analyses.push(entry);
+  if(DB){ setSyncStatus('syncing'); DB.ref('analyses').push(entry).then(function(){setSyncStatus('ok');}); }
+
+  if(role==='admin')refreshAdminDashboard();
+  setTimeout(function(){
+    if(role==='admin')renderResults('admin-analyze-container',criteria,role);
+    else{renderResults('user-results-container',criteria,role);userTab('results',document.querySelector('#page-user .nav-item:nth-child(2)'));}
+    showToast(allResults.length+' CV analysés'+(retainCount>0?' — Top '+retainCount+' identifiés':''),'success');
+  },300);
+  if(btn){btn.disabled=false;btn.innerHTML='🔍 Relancer l\'analyse';}
+}
+
+async function analyzeOneCv(cv, criteriaWithReqs, logEl){
+  var criteriaNames = criteriaWithReqs.map(function(c){ return typeof c==='string'?c:c.name; });
+
+  // ── Fiche de poste ──────────────────────────────────────────────────────────
+  var jobSection = '';
+  if(JOB.active && JOB.title){
+    jobSection = '\n\n════════════════════════════════════════\nFICHE DE POSTE — RÉFÉRENTIEL D\'ÉVALUATION\n════════════════════════════════════════\n';
+    jobSection += 'Intitulé du poste : '+JOB.title+'\n';
+    if(JOB.description) jobSection += 'Description complète :\n'+JOB.description.trim().slice(0,800)+'\n';
+    jobSection += '► Toute notation doit être calibrée par rapport à ce profil de poste.\n';
+  }
+
+  // ── Critères avec exigences ─────────────────────────────────────────────────
+  var critLines = criteriaWithReqs.map(function(c, idx){
+    var nm = typeof c==='string'?c:c.name;
+    var rq = typeof c==='object'?(c.req||''):'';
+    return '  '+(idx+1)+'. '+nm+(rq?'\n     Exigence : '+rq:'');
+  }).join('\n');
+
+  // Schéma JSON avec valeurs VARIÉES pour éviter que l'IA parte de 12 par défaut
+  var exampleScores = [14.5, 11.0, 16.5, 9.0, 13.5, 7.5, 17.0, 10.5, 15.0, 8.5];
+  var critSchema = criteriaNames.map(function(n, i){
+    return '"'+n+'": '+exampleScores[i % exampleScores.length];
+  }).join(', ');
+
+  // ── Grille de notation /20 ──────────────────────────────────────────────────
+  var scoringGrid = `
+════════════════════════════════════════════════════════
+GRILLE D'ÉVALUATION STANDARDISÉE — NOTE SUR 20 (2 décimales)
+════════════════════════════════════════════════════════
+
+MÉTHODE OBLIGATOIRE : Notation par ancrage comportemental (BARS)
+Chaque critère est noté de 0.00 à 20.00 avec 2 décimales OBLIGATOIRES.
+
+NIVEAUX D'ANCRAGE :
+  18.00–20.00 | EXCELLENT    : Dépasse largement toutes les exigences. Réalisations remarquables prouvées, expertise reconnue, valeur ajoutée immédiate certaine.
+  15.00–17.99 | TRÈS BON     : Satisfait pleinement toutes les exigences. Expériences solides et variées, maîtrise confirmée.
+  12.00–14.99 | BON          : Satisfait la majorité des exigences. Bonne base, lacunes mineures comblables.
+   9.00–11.99 | PASSABLE     : Satisfait partiellement. Lacunes notables nécessitant formation ou accompagnement.
+   5.00–8.99  | INSUFFISANT  : Ne satisfait pas la plupart des exigences. Profil éloigné du niveau requis.
+   0.00–4.99  | RÉDHIBITOIRE : Critère complètement absent ou incompatible.
+
+RÈGLES ANTI-BIAIS STRICTES :
+1. DIFFÉRENCIATION OBLIGATOIRE : Il est INTERDIT que deux critères aient exactement la même note.
+   Utilisez les décimales pour différencier : 13.25, 14.75, 11.50, etc.
+2. ANCRAGE FACTUEL : Chaque note doit être justifiée par un fait EXTRAIT du CV (poste, diplôme, durée, résultat chiffré).
+3. ABSENCE D'INFORMATION : Si un critère n'est pas mentionné dans le CV → note maximale 5.00/20.
+4. INTERDICTION de regrouper plusieurs candidats ou critères autour d'une même valeur ronde (ex: 12, 13, 14).
+5. CALCUL DU SCORE TOTAL : Moyenne arithmétique exacte de TOUS les criteriaScores, arrondie à 2 décimales.
+6. RECOMMANDATION basée sur le score total :
+     • ≥ 15.00 → "À retenir"
+     • 10.00 à 14.99 → "À considérer"
+     • < 10.00 → "Non retenu"
+`;
+
+  // ── Prompt complet ──────────────────────────────────────────────────────────
+  var prompt =
+`Tu es un Directeur des Ressources Humaines Senior avec 20 ans d'expérience en recrutement de cadres dans le secteur financier africain, mandaté par la BVMAC (Bourse des Valeurs Mobilières de l'Afrique Centrale) pour évaluer des candidatures de manière rigoureuse, objective et professionnelle.`
++ jobSection
++ scoringGrid
++ `
+════════════════════════════════════════════════════════
+CRITÈRES D'ÉVALUATION — LISTE COMPLÈTE (${criteriaNames.length} critères à noter TOUS obligatoirement)
+════════════════════════════════════════════════════════
+ATTENTION : Tu dois fournir une note pour CHACUN des ${criteriaNames.length} critères ci-dessous, sans exception.
+`+ critLines +`
+
+════════════════════════════════════════════════════════
+CV DU CANDIDAT À ÉVALUER
+════════════════════════════════════════════════════════
+`+ cv.data.slice(0, 9000) +`
+
+════════════════════════════════════════════════════════
+INSTRUCTIONS D'ÉVALUATION
+════════════════════════════════════════════════════════
+1. Lis intégralement le CV avant de commencer à noter.
+2. Pour CHAQUE critère : identifie d'abord les éléments factuels du CV, puis applique la grille BARS.
+3. Utilise OBLIGATOIREMENT 2 décimales pour chaque note (ex: 13.75, 9.25, 16.50).
+4. Aucune note ne peut être identique à une autre note dans le même JSON (différenciation absolue).
+5. Calcule le totalScore = somme de toutes les notes ÷ ${criteriaNames.length}, arrondi à 2 décimales.
+6. Vérifie que ton JSON contient exactement ${criteriaNames.length} entrées dans criteriaScores.
+7. La synthèse doit être en 3 phrases minimum, en français professionnel.
+8. La justification doit citer au moins 2 faits concrets extraits du CV.
+
+Réponds UNIQUEMENT avec le JSON suivant — AUCUN texte avant ou après :
+{
+  "name": "Prénom NOM (tel qu'indiqué dans le CV)",
+  "filename": "`+cv.name+`",
+  "currentPosition": "Intitulé exact du poste actuel ou le plus récent",
+  "education": "Diplôme le plus élevé — Établissement — Année",
+  "yearsExp": "X ans (calculé depuis le premier poste)"
+`+(JOB.active ? `  ,"jobFit": "Adéquation précise au poste en 1 phrase avec argument factuel tiré du CV"` : '')+`,
+  "totalScore": 0.00,
+  "criteriaScores": {`+ critSchema +`},
+  "strengths": ["Force factuelle extraite du CV 1", "Force factuelle extraite du CV 2", "Force factuelle extraite du CV 3"],
+  "weaknesses": ["Point d'attention factuel 1 (absent ou insuffisant dans le CV)", "Point d'attention factuel 2"],
+  "keySkills": ["Compétence clé identifiée dans le CV 1", "Compétence clé 2", "Compétence clé 3"],
+  "summary": "Phrase 1 : profil global du candidat. Phrase 2 : adéquation au poste avec fait concret. Phrase 3 : élément différenciant par rapport au profil recherché.",
+  "recommendation": "À retenir",
+  "recommendationReason": "Justification en 2 phrases citant au moins 2 faits concrets du CV justifiant la recommandation."
+}
+
+VÉRIFICATIONS FINALES AVANT D'ENVOYER :
+✓ criteriaScores contient exactement ${criteriaNames.length} clés : ${criteriaNames.map(function(n){return '"'+n+'"';}).join(', ')}
+✓ Toutes les notes ont 2 décimales et sont comprises entre 0.00 et 20.00
+✓ Aucune note n'est identique à une autre
+✓ totalScore = moyenne arithmétique exacte de toutes les notes (arrondie à 2 décimales)
+✓ recommendation est EXACTEMENT : "À retenir" | "À considérer" | "Non retenu"
+✓ JSON valide uniquement — zéro texte en dehors`;
+
+  var raw = await callAI(prompt, logEl);
+  var parsed = robustParse(raw, logEl);
+  if(!parsed || !parsed.length) throw new Error('JSON invalide');
+  var r = parsed[0];
+  r.filename = r.filename || cv.name;
+  r.strengths  = Array.isArray(r.strengths)  ? r.strengths  : [];
+  r.weaknesses = Array.isArray(r.weaknesses) ? r.weaknesses : [];
+  r.keySkills  = Array.isArray(r.keySkills)  ? r.keySkills  : [];
+  r.criteriaScores = r.criteriaScores || {};
+
+  // Parse all scores as floats with 2 decimals, clamped 0–20
+  Object.keys(r.criteriaScores).forEach(function(k){
+    var v = parseFloat(String(r.criteriaScores[k]||0).replace(',','.')) || 0;
+    r.criteriaScores[k] = Math.round(Math.min(20, Math.max(0, v)) * 100) / 100;
+  });
+
+  // Inject any missing criteria with 0 and log a warning
+  criteriaNames.forEach(function(name){
+    if(r.criteriaScores[name] === undefined){
+      logLine(logEl,'  ⚠ Critère manquant dans réponse IA: "'+name+'" → injecté à 0.00','warn');
+      r.criteriaScores[name] = 0;
+    }
+  });
+
+  // ALWAYS recalculate totalScore as exact arithmetic mean of ALL criteria (2 decimals)
+  var allVals = criteriaNames.map(function(name){
+    return r.criteriaScores[name] || 0;
+  });
+  r.totalScore = Math.round((allVals.reduce(function(a,b){return a+b;},0) / allVals.length) * 100) / 100;
+
+  // Auto-assign recommendation based on /20 scale
+  if(!r.recommendation || !['À retenir','À considérer','Non retenu'].includes(r.recommendation)){
+    r.recommendation = r.totalScore>=15 ? 'À retenir' : r.totalScore>=10 ? 'À considérer' : 'Non retenu';
+  }
+
+  logLine(logEl,'  Score calculé : '+r.totalScore+'/20 sur '+allVals.length+' critères','ok');
+  return r;
+}
+
+async function callAI(prompt,logEl){
+  var apis=[];
+  if(STATE.groqKey) apis.push({name:'Groq',key:STATE.groqKey,type:'groq'});
+  if(STATE.apiKey) apis.push({name:'MADJINGAYE',key:STATE.apiKey,type:'gemini'});
+  if(STATE.mistralKey) apis.push({name:'Mistral',key:STATE.mistralKey,type:'mistral'});
+  if(!apis.length)throw new Error('Aucune clé API configurée.');
+  var lastErr=null;
+  for(var i=0;i<apis.length;i++){
+    var api=apis[i];
+    try{
+      if(i>0)logLine(logEl,'  Essai avec '+api.name,'warn');else logLine(logEl,'  Envoi à '+api.name,'info');
+      if(api.type==='gemini'){
+        var r=await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key='+api.key,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({contents:[{parts:[{text:prompt}]}],generationConfig:{maxOutputTokens:2048,temperature:0.1}})});
+        if(!r.ok){var ed=await r.json().catch(function(){return {};});throw new Error((ed.error&&ed.error.message)||'HTTP '+r.status);}
+        var d=await r.json();var raw=(d.candidates&&d.candidates[0]&&d.candidates[0].content&&d.candidates[0].content.parts&&d.candidates[0].content.parts[0]&&d.candidates[0].content.parts[0].text)||'';
+        if(!raw)throw new Error('Réponse vide');return raw;
+      }
+      if(api.type==='groq'){
+        var r2=await fetch('https://api.groq.com/openai/v1/chat/completions',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+api.key},body:JSON.stringify({model:'llama-3.3-70b-versatile',messages:[{role:'user',content:prompt}],temperature:0.1,max_tokens:4096})});
+        if(!r2.ok){var ed2=await r2.json().catch(function(){return {};});throw new Error((ed2.error&&ed2.error.message)||'HTTP '+r2.status);}
+        var d2=await r2.json();var raw2=(d2.choices&&d2.choices[0]&&d2.choices[0].message&&d2.choices[0].message.content)||'';
+        if(!raw2)throw new Error('Réponse vide');return raw2;
+      }
+      if(api.type==='mistral'){
+        var r3=await fetch('https://api.mistral.ai/v1/chat/completions',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+api.key},body:JSON.stringify({model:'mistral-small-latest',messages:[{role:'user',content:prompt}],temperature:0.1,max_tokens:4096})});
+        if(!r3.ok){var ed3=await r3.json().catch(function(){return {};});throw new Error((ed3.error&&ed3.error.message)||'HTTP '+r3.status);}
+        var d3=await r3.json();var raw3=(d3.choices&&d3.choices[0]&&d3.choices[0].message&&d3.choices[0].message.content)||'';
+        if(!raw3)throw new Error('Réponse vide');return raw3;
+      }
+    }catch(err){lastErr=err;logLine(logEl,'  ⚠ '+api.name+' : '+err.message.slice(0,60),'warn');if(i<apis.length-1)await sleep(600);}
+  }
+  throw new Error('Toutes APIs échouées.');
+}
+
+function robustParse(raw,logEl){
+  if(!raw||!raw.trim())return null;
+  var text=raw.replace(/^```json\s*/im,'').replace(/^```\s*/im,'').replace(/```\s*$/im,'').trim();
+  var aS=text.indexOf('['),aE=text.lastIndexOf(']');if(aS!==-1&&aE>aS){try{return JSON.parse(text.slice(aS,aE+1));}catch(e){}}
+  var oS=text.indexOf('{'),oE=text.lastIndexOf('}');if(oS!==-1&&oE>oS){try{return [JSON.parse(text.slice(oS,oE+1))];}catch(e){}}
+  return null;
+}
+
+// ══════════════════════════════════════════
+// RESULTS
+// ══════════════════════════════════════════
+function renderResults(containerId,criteria,role){
+  var container=document.getElementById(containerId); if(!container)return;
+  var total=STATE.results.length;
+  var retained=STATE.results.filter(function(r){return r.recommendation==='À retenir';}).length;
+  var consider=STATE.results.filter(function(r){return r.recommendation==='À considérer';}).length;
+  var rejected=total-retained-consider;
+  var avg=total>0?(STATE.results.reduce(function(s,r){return s+(parseFloat(r.totalScore)||0);},0)/total).toFixed(2):'—';
+  var qualCount=QUALIFIED_CANDIDATES.length;
+
+  var qualBanner=IS_FINAL_ANALYSIS
+    ?'<div class="final-mode-banner" style="margin-bottom:20px"><span style="font-size:24px">🏆</span><div><div style="font-weight:600;color:var(--gold)">Résultats — Analyse Finale</div><div style="font-size:12px;color:var(--muted)">Comparaison des '+total+' candidats qualifiés</div></div></div>'
+    :'';
+
+  // Stats summary bar
+  var statsBar = total>0
+    ? '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px">'
+      +'<div style="background:var(--navy2);border:1px solid var(--border);border-radius:10px;padding:14px 16px;text-align:center">'
+      +'<div style="font-family:Playfair Display,serif;font-size:28px;font-weight:700;color:var(--gold)">'+total+'</div>'
+      +'<div style="font-size:10px;text-transform:uppercase;letter-spacing:0.1em;color:var(--muted);margin-top:2px">Candidats</div></div>'
+      +'<div style="background:var(--navy2);border:1px solid rgba(60,184,122,0.3);border-top:3px solid var(--success);border-radius:10px;padding:14px 16px;text-align:center">'
+      +'<div style="font-family:Playfair Display,serif;font-size:28px;font-weight:700;color:var(--success)">'+retained+'</div>'
+      +'<div style="font-size:10px;text-transform:uppercase;letter-spacing:0.1em;color:var(--muted);margin-top:2px">À retenir</div></div>'
+      +'<div style="background:var(--navy2);border:1px solid rgba(201,151,28,0.3);border-top:3px solid var(--gold);border-radius:10px;padding:14px 16px;text-align:center">'
+      +'<div style="font-family:Playfair Display,serif;font-size:28px;font-weight:700;color:var(--gold2)">'+consider+'</div>'
+      +'<div style="font-size:10px;text-transform:uppercase;letter-spacing:0.1em;color:var(--muted);margin-top:2px">À considérer</div></div>'
+      +'<div style="background:var(--navy2);border:1px solid var(--border);border-radius:10px;padding:14px 16px;text-align:center">'
+      +'<div style="font-family:Playfair Display,serif;font-size:28px;font-weight:700;color:var(--muted)">'+avg+'</div>'
+      +'<div style="font-size:10px;text-transform:uppercase;letter-spacing:0.1em;color:var(--muted);margin-top:2px">Score moyen/20</div></div>'
+      +'</div>'
+    : '';
+
+  var qualifiedNotice=(!IS_FINAL_ANALYSIS&&role==='admin'&&total>0)
+    ?'<div style="padding:10px 16px;background:rgba(201,151,28,0.06);border:1px solid rgba(201,151,28,0.18);border-radius:8px;font-size:12px;color:var(--muted);margin-bottom:16px">⭐ Cliquez <strong style="color:var(--gold)">★ Qualifier</strong> pour ajouter un candidat à la liste des qualifiés. <strong style="color:var(--gold)">'+qualCount+' déjà qualifié(s).</strong></div>'
+    :'';
+
+  var html=total===0
+    ?'<div class="panel" style="text-align:center;padding:60px"><div style="font-size:48px;margin-bottom:16px">😕</div><div style="color:var(--muted)">Aucun résultat.</div></div>'
+    :STATE.results.map(function(r,i){return buildResultCard(r,i,criteria,role);}).join('');
+
+  var exp=total>0
+    ?'<div class="panel" style="margin-top:24px"><div class="panel-title">⬇️ Exporter</div><div class="export-row"><button class="btn-export primary-export" onclick="exportProfessionalReport()">📋 Rapport PDF</button><button class="btn-export" onclick="exportCSV()">📊 CSV</button></div></div>'
+    :'';
+
+  var header='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:12px">'
+    +'<div style="font-family:Playfair Display,serif;font-size:26px;color:var(--white)">'+(IS_FINAL_ANALYSIS?'🏆 Analyse Finale':'Classement des candidats')+'</div>'
+    +'<div style="font-family:JetBrains Mono,monospace;font-size:11px;color:var(--muted)">'+total+' CANDIDAT(S) · '+criteria.length+' CRITÈRES</div></div>';
+
+  if(role==='admin'){
+    var ex=container.querySelector('.results-block');if(ex)ex.remove();
+    var div=document.createElement('div');div.className='results-block';
+    div.innerHTML=qualBanner+header+statsBar+qualifiedNotice+html+exp;
+    container.appendChild(div);
+  } else {
+    container.innerHTML=qualBanner+header+statsBar+html+exp;
+  }
+}
+
+function buildResultCard(r,i,criteria,role){
+  var score=parseFloat(r.totalScore)||0;
+  var col=score>=15?'var(--success)':score>=10?'var(--gold)':'var(--danger)';
+  var recBg=r.recommendation==='À retenir'?'rgba(60,184,122,0.12)':r.recommendation==='À considérer'?'rgba(201,151,28,0.12)':'rgba(224,84,84,0.12)';
+  var recBorder=r.recommendation==='À retenir'?'rgba(60,184,122,0.4)':r.recommendation==='À considérer'?'rgba(201,151,28,0.4)':'rgba(224,84,84,0.4)';
+  var recCol=r.recommendation==='À retenir'?'var(--success)':r.recommendation==='À considérer'?'var(--gold2)':'var(--danger)';
+  var recIcon=r.recommendation==='À retenir'?'✓':r.recommendation==='À considérer'?'◎':'✗';
+  var qualified=isQualified(r);
+
+  // Rank medal
+  var medal=i===0?'🥇':i===1?'🥈':i===2?'🥉':'';
+
+  // Score gauge (arc visuel)
+  var pct=score/20*100;
+  var gaugeCol=score>=15?'#3cb87a':score>=10?'#c9971c':'#e05454';
+
+  // Qualify button
+  var qualifyBtn='';
+  if(role==='admin'&&!IS_FINAL_ANALYSIS){
+    qualifyBtn='<button class="result-qualify-btn'+(qualified?' is-qualified':'')+'" onclick="toggleQualify('+i+')" style="margin-left:auto">'
+      +(qualified?'⭐ Qualifié':'★ Qualifier')
+      +'</button>';
+  } else if(qualified){
+    qualifyBtn='<span style="display:inline-flex;align-items:center;gap:4px;font-size:10px;color:var(--gold);font-family:JetBrains Mono,monospace;background:rgba(201,151,28,0.1);padding:3px 10px;border-radius:10px;border:1px solid rgba(201,151,28,0.3)">⭐ QUALIFIÉ</span>';
+  }
+
+  // Criteria bars — grid layout
+  var critBars='';
+  if(r.criteriaScores && criteria && criteria.length){
+    critBars = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px;margin-top:4px">'
+    + criteria.map(function(c){
+        var v=parseFloat(r.criteriaScores[c])||0;
+        var vc=v>=15?'#3cb87a':v>=10?'#c9971c':'#e05454';
+        var pv=Math.round(v/20*100);
+        return '<div style="background:rgba(11,31,58,0.6);border:1px solid var(--border);border-radius:8px;padding:10px 12px">'
+          +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">'
+          +'<span style="font-size:11px;color:var(--text);font-weight:500">'+esc(c)+'</span>'
+          +'<span style="font-size:13px;font-weight:700;font-family:Playfair Display,serif;color:'+vc+'">'+v.toFixed(2)+'<span style="font-size:9px;color:var(--muted);font-family:Jost,sans-serif">/20</span></span>'
+          +'</div>'
+          +'<div style="height:4px;background:rgba(255,255,255,0.08);border-radius:2px;overflow:hidden">'
+          +'<div style="width:'+pv+'%;height:100%;background:'+vc+';border-radius:2px;transition:width 0.6s ease"></div>'
+          +'</div>'
+          +'</div>';
+      }).join('')
+    +'</div>';
+  }
+
+  // Strengths & weaknesses
+  var strs=(r.strengths||[]).map(function(s){
+    return '<div style="display:flex;align-items:flex-start;gap:7px;margin-bottom:5px">'
+      +'<span style="color:var(--success);font-size:12px;margin-top:1px;flex-shrink:0">✓</span>'
+      +'<span style="font-size:12px;color:var(--text);line-height:1.5">'+esc(s)+'</span>'
+      +'</div>';
+  }).join('');
+  var wks=(r.weaknesses||[]).map(function(w){
+    return '<div style="display:flex;align-items:flex-start;gap:7px;margin-bottom:5px">'
+      +'<span style="color:var(--danger);font-size:12px;margin-top:1px;flex-shrink:0">⚠</span>'
+      +'<span style="font-size:12px;color:var(--text);line-height:1.5">'+esc(w)+'</span>'
+      +'</div>';
+  }).join('');
+
+  return '<div class="result-card" style="border-radius:12px;overflow:hidden;margin-bottom:20px;border:1px solid var(--border)">'
+
+    // ── HEADER ──
+    +'<div style="display:flex;align-items:stretch;background:var(--navy2)">'
+
+      // Rank block
+      +'<div style="width:64px;flex-shrink:0;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px 8px;background:rgba(0,0,0,0.15);border-right:1px solid var(--border)">'
+      +(medal?'<div style="font-size:20px;margin-bottom:4px">'+medal+'</div>':'')
+      +'<div style="font-family:Playfair Display,serif;font-size:22px;font-weight:700;color:var(--muted)">#'+(i+1)+'</div>'
+      +'</div>'
+
+      // Info block
+      +'<div style="flex:1;padding:18px 20px;min-width:0">'
+      +'<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap">'
+        +'<div style="min-width:0">'
+        +'<div style="font-family:Playfair Display,serif;font-size:19px;color:var(--white);font-weight:600;margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(r.name||'—')+'</div>'
+        +(r.currentPosition?'<div style="font-size:12px;color:var(--muted);margin-bottom:2px">💼 '+esc(r.currentPosition)+(r.yearsExp?' · '+esc(r.yearsExp):'')+'</div>':'')
+        +(r.education?'<div style="font-size:12px;color:var(--muted);margin-bottom:8px">🎓 '+esc(r.education)+'</div>':'')
+        +'<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">'
+        +'<div style="display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:12px;font-size:11px;font-weight:600;border:1px solid '+recBorder+';background:'+recBg+';color:'+recCol+'">'
+        +'<span>'+recIcon+'</span><span>'+esc(r.recommendation||'')+'</span>'
+        +'</div>'
+        +qualifyBtn
+        +'</div>'
+        +'</div>'
+
+        // Score block
+        +'<div style="text-align:center;flex-shrink:0">'
+        +'<div style="font-family:Playfair Display,serif;font-size:42px;font-weight:700;line-height:1;color:'+col+'">'+score.toFixed(2)+'</div>'
+        +'<div style="font-size:13px;color:var(--muted);margin-bottom:8px">/20</div>'
+        +'<div style="width:80px;height:6px;background:rgba(255,255,255,0.08);border-radius:3px;overflow:hidden">'
+        +'<div style="width:'+pct+'%;height:100%;background:'+gaugeCol+';border-radius:3px"></div>'
+        +'</div>'
+        +'</div>'
+      +'</div>'
+      +'</div>'
+    +'</div>'
+
+    // ── JOB FIT ──
+    +(r.jobFit?'<div style="padding:10px 20px;background:rgba(201,151,28,0.05);border-top:1px solid rgba(201,151,28,0.15);border-bottom:1px solid rgba(201,151,28,0.15);display:flex;align-items:flex-start;gap:8px">'
+      +'<span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:var(--gold);flex-shrink:0;margin-top:1px">Adéquation</span>'
+      +'<span style="font-size:12px;color:var(--gold2);line-height:1.6">'+esc(r.jobFit)+'</span>'
+      +'</div>':'')
+
+    // ── BODY ──
+    +'<div style="padding:20px;background:rgba(11,31,58,0.3)">'
+
+      // Critères
+      +(critBars?'<div style="margin-bottom:20px">'
+        +'<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.14em;color:var(--gold);margin-bottom:10px;display:flex;align-items:center;gap:6px">'
+        +'<span style="width:16px;height:1px;background:var(--gold);display:inline-block"></span>Évaluation par critère'
+        +'<span style="width:16px;height:1px;background:var(--gold);display:inline-block"></span></div>'
+        +critBars
+        +'</div>':'')
+
+      // Synthèse
+      +(r.summary?'<div style="margin-bottom:16px">'
+        +'<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.14em;color:var(--muted);margin-bottom:8px">Synthèse</div>'
+        +'<div style="font-size:13px;color:var(--text);line-height:1.75;background:rgba(201,151,28,0.04);border-left:3px solid rgba(201,151,28,0.4);padding:12px 16px;border-radius:0 8px 8px 0">'+esc(r.summary)+'</div>'
+        +'</div>':'')
+
+      // Points forts & attention en colonnes
+      +((strs||wks)?'<div style="display:grid;grid-template-columns:'+(strs&&wks?'1fr 1fr':'1fr')+';gap:16px;margin-bottom:16px">'
+        +(strs?'<div><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.14em;color:var(--success);margin-bottom:8px;display:flex;align-items:center;gap:6px">✓ Points forts</div>'+strs+'</div>':'')
+        +(wks?'<div><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.14em;color:var(--danger);margin-bottom:8px;display:flex;align-items:center;gap:6px">⚠ Points d\'attention</div>'+wks+'</div>':'')
+        +'</div>':'')
+
+      // Justification
+      +(r.recommendationReason?'<div style="border-top:1px solid var(--border);padding-top:12px;display:flex;align-items:flex-start;gap:8px">'
+        +'<span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:var(--muted);flex-shrink:0;margin-top:2px">Justification</span>'
+        +'<span style="font-size:12px;color:var(--muted);line-height:1.6;font-style:italic">'+esc(r.recommendationReason)+'</span>'
+        +'</div>':'')
+
+    +'</div>'
+  +'</div>';
+}
+
+// ══════════════════════════════════════════
+// EXPORT
+// ══════════════════════════════════════════
+function exportCSV(){
+  if(!STATE.results.length)return;
+  var keys=Object.keys(STATE.results[0].criteriaScores||{});
+  var headers=['Rang','Nom','Fichier','Poste actuel','Formation','Expérience','Score (/20)','Recommandation',...keys];
+  var rows=STATE.results.map(function(r,i){return [i+1,r.name,r.filename,r.currentPosition||'',r.education||'',r.yearsExp||'',r.totalScore,r.recommendation,...keys.map(function(k){return r.criteriaScores?r.criteriaScores[k]||'':'';})].map(function(v){return '"'+String(v).replace(/"/g,'""')+'"';});});
+  downloadBlob('\uFEFF',[headers,...rows].map(function(r){return r.join(',');}).join('\n'),'BVMAC_CV_'+today()+'.csv','text/csv;charset=utf-8;');
+  showToast('CSV exporté','success');
+}
+
+function exportProfessionalReport(){
+  if(!STATE.results.length)return;
+  var job=JOB.active?JOB.title:(CRITERIA_CONFIG.jobTitle||'Non défini');
+  var date=new Date().toLocaleDateString('fr-FR',{day:'2-digit',month:'long',year:'numeric'});
+  var total=STATE.results.length;
+  var retained=STATE.results.filter(function(r){return r.recommendation==='À retenir';}).length;
+  var consider=STATE.results.filter(function(r){return r.recommendation==='À considérer';}).length;
+  var rejected=total-retained-consider;
+  var avg=(STATE.results.reduce(function(s,r){return s+(parseFloat(r.totalScore)||0);},0)/total).toFixed(2);
+  var top=STATE.results[0];
+  var retainCount=STATE.retainCount||0;
+  var criteria=Object.keys(STATE.results[0].criteriaScores||{});
+
+  // Score distribution
+  var dist={'16-20':0,'12-15':0,'8-11':0,'0-7':0};
+  STATE.results.forEach(function(r){var s=parseFloat(r.totalScore)||0;if(s>=16)dist['16-20']++;else if(s>=12)dist['12-15']++;else if(s>=8)dist['8-11']++;else dist['0-7']++;});
+
+  function badge(rec){
+    if(rec==='À retenir')return '<span style="background:#1a6b3c;color:#a8f0c8;padding:3px 10px;border-radius:12px;font-size:11px;font-weight:600">✓ À retenir</span>';
+    if(rec==='À considérer')return '<span style="background:#5c4200;color:#f5d072;padding:3px 10px;border-radius:12px;font-size:11px;font-weight:600">◎ À considérer</span>';
+    return '<span style="background:#5c1a1a;color:#f0a0a0;padding:3px 10px;border-radius:12px;font-size:11px;font-weight:600">✗ Non retenu</span>';
+  }
+  function scoreColor(s){return s>=15?'#1a6b3c':s>=10?'#7a5c00':'#8b2020';}
+  function scoreBar(s,max){max=max||20;var pct=Math.round(s/max*100);var col=s>=15?'#3cb87a':s>=10?'#c9971c':'#e05454';return '<div style="background:#e8e8e8;border-radius:4px;height:8px;width:100%;margin-top:4px"><div style="width:'+pct+'%;height:100%;background:'+col+';border-radius:4px"></div></div>';}
+
+  var html='<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><title>Rapport BVMAC — '+esc(job)+'</title>'
+  +'<style>'
+  +'@import url(\'https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Inter:wght@300;400;500;600&display=swap\');'
+  +'*{box-sizing:border-box;margin:0;padding:0}'
+  +'body{font-family:Inter,sans-serif;color:#1a1a2e;background:#fff;font-size:13px}'
+  +'.page{page-break-after:always}'
+  +'@media print{'
+  +'  .page{page-break-after:always}'
+  +'  .no-break{page-break-inside:avoid}'
+  +'}'
+  // COVER PAGE
+  +'.cover{display:flex;flex-direction:column;min-height:100vh;background:linear-gradient(160deg,#0b1f3a 60%,#1a3560 100%);color:#fff;padding:0}'
+  +'.cover-top{padding:48px 56px 0}'
+  +'.cover-logo{display:flex;align-items:center;gap:18px;margin-bottom:56px}'
+  +'.logo-emblem{width:56px;height:56px;border:2px solid #c9971c;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:"Playfair Display",serif;font-size:20px;font-weight:700;color:#c9971c}'
+  +'.logo-text{font-size:11px;color:rgba(255,255,255,0.6);letter-spacing:0.15em;text-transform:uppercase;line-height:1.6}'
+  +'.cover-divider{width:80px;height:2px;background:linear-gradient(90deg,#c9971c,#e8b531);margin:0 56px 48px}'
+  +'.cover-body{flex:1;display:flex;flex-direction:column;justify-content:center;padding:0 56px}'
+  +'.cover-label{font-size:11px;letter-spacing:0.2em;text-transform:uppercase;color:#c9971c;margin-bottom:20px;font-weight:500}'
+  +'.cover-title{font-family:"Playfair Display",serif;font-size:42px;font-weight:700;color:#fff;line-height:1.2;margin-bottom:12px}'
+  +'.cover-job{font-family:"Playfair Display",serif;font-size:26px;font-weight:400;color:#e8b531;font-style:italic;margin-bottom:40px}'
+  +'.cover-meta{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-bottom:48px}'
+  +'.meta-item{border-left:2px solid rgba(201,151,28,0.4);padding-left:16px}'
+  +'.meta-label{font-size:9px;letter-spacing:0.18em;text-transform:uppercase;color:rgba(255,255,255,0.45);margin-bottom:4px}'
+  +'.meta-value{font-size:14px;font-weight:500;color:#fff}'
+  +'.cover-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;background:rgba(255,255,255,0.06);border:1px solid rgba(201,151,28,0.2);border-radius:12px;padding:24px;margin-bottom:0}'
+  +'.cs-item{text-align:center}'
+  +'.cs-num{font-family:"Playfair Display",serif;font-size:36px;font-weight:700;line-height:1}'
+  +'.cs-lbl{font-size:10px;text-transform:uppercase;letter-spacing:0.1em;color:rgba(255,255,255,0.5);margin-top:4px}'
+  +'.cover-footer{padding:32px 56px;border-top:1px solid rgba(255,255,255,0.1);display:flex;justify-content:space-between;align-items:center}'
+  +'.footer-brand{font-size:11px;color:rgba(255,255,255,0.4);letter-spacing:0.1em;text-transform:uppercase}'
+  +'.footer-conf{font-size:10px;color:rgba(255,255,255,0.3);font-style:italic}'
+  // CONTENT PAGES
+  +'.content{padding:48px 56px}'
+  +'.section-title{font-family:"Playfair Display",serif;font-size:20px;font-weight:600;color:#0b1f3a;margin-bottom:20px;padding-bottom:10px;border-bottom:2px solid #c9971c;display:flex;align-items:center;gap:10px}'
+  +'.kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:32px}'
+  +'.kpi-card{border:1px solid #e0e0e8;border-radius:10px;padding:20px;text-align:center;position:relative;overflow:hidden}'
+  +'.kpi-card::before{content:"";position:absolute;top:0;left:0;right:0;height:3px}'
+  +'.kpi-total::before{background:#0b1f3a}'
+  +'.kpi-retain::before{background:#3cb87a}'
+  +'.kpi-consider::before{background:#c9971c}'
+  +'.kpi-reject::before{background:#e05454}'
+  +'.kpi-num{font-family:"Playfair Display",serif;font-size:38px;font-weight:700;line-height:1;margin-bottom:4px}'
+  +'.kpi-lbl{font-size:10px;text-transform:uppercase;letter-spacing:0.1em;color:#888}'
+  +'.kpi-total .kpi-num{color:#0b1f3a}'
+  +'.kpi-retain .kpi-num{color:#1a6b3c}'
+  +'.kpi-consider .kpi-num{color:#7a5c00}'
+  +'.kpi-reject .kpi-num{color:#8b2020}'
+  +'.chart-row{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-bottom:32px}'
+  +'.chart-box{border:1px solid #e0e0e8;border-radius:10px;padding:20px}'
+  +'.chart-box-title{font-size:11px;text-transform:uppercase;letter-spacing:0.1em;color:#888;margin-bottom:16px;font-weight:600}'
+  +'.dist-bar-row{display:flex;align-items:center;gap:10px;margin-bottom:10px;font-size:12px}'
+  +'.dist-bar-label{width:60px;color:#555;font-weight:500}'
+  +'.dist-bar-wrap{flex:1;background:#f0f0f0;border-radius:4px;height:20px;position:relative}'
+  +'.dist-bar-fill{height:100%;border-radius:4px;display:flex;align-items:center;padding-left:8px;font-size:11px;font-weight:600;color:#fff;min-width:28px}'
+  +'.dist-bar-count{margin-left:6px;color:#555}'
+  +'.rec-row{display:flex;align-items:center;gap:12px;margin-bottom:10px}'
+  +'.rec-dot{width:14px;height:14px;border-radius:50%;flex-shrink:0}'
+  +'.rec-label{font-size:12px;color:#333;flex:1}'
+  +'.rec-pct{font-size:12px;font-weight:600;color:#333}'
+  // Candidate cards
+  +'.cand-card{border:1px solid #e0e0e8;border-radius:10px;margin-bottom:20px;overflow:hidden}'
+  +'.cand-header{display:flex;align-items:center;gap:16px;padding:16px 20px;background:#f8f8fc}'
+  +'.cand-rank{font-family:"Playfair Display",serif;font-size:26px;font-weight:700;color:#c9971c;min-width:48px;text-align:center}'
+  +'.cand-info{flex:1}'
+  +'.cand-name{font-family:"Playfair Display",serif;font-size:17px;font-weight:600;color:#0b1f3a;margin-bottom:2px}'
+  +'.cand-meta{font-size:11px;color:#666}'
+  +'.cand-score-wrap{text-align:right}'
+  +'.cand-score{font-family:"Playfair Display",serif;font-size:32px;font-weight:700}'
+  +'.cand-score-sub{font-size:11px;color:#888}'
+  +'.cand-body{padding:16px 20px}'
+  +'.cand-criteria{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px}'
+  +'.crit-item{background:#f8f8fc;border-radius:6px;padding:10px}'
+  +'.crit-item-name{font-size:9px;text-transform:uppercase;letter-spacing:0.08em;color:#888;margin-bottom:4px}'
+  +'.crit-item-score{font-weight:700;font-size:15px}'
+  +'.cand-summary{font-size:12px;color:#333;line-height:1.7;background:#fffbf0;border-left:3px solid #c9971c;padding:10px 14px;border-radius:0 6px 6px 0;margin-bottom:10px}'
+  +'.tags-row{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px}'
+  +'.tag-green{background:#e8f5ee;color:#1a6b3c;border-radius:8px;padding:3px 10px;font-size:10px;font-weight:500}'
+  +'.tag-red{background:#fdf0f0;color:#8b2020;border-radius:8px;padding:3px 10px;font-size:10px;font-weight:500}'
+  +'.cand-justif{font-size:11px;color:#555;font-style:italic;border-top:1px solid #ececec;padding-top:8px;margin-top:8px}'
+  +'.top-banner{background:linear-gradient(90deg,#0b1f3a,#1a3560);color:#fff;padding:20px 24px;border-radius:10px;margin-bottom:28px;display:flex;align-items:center;gap:20px}'
+  +'.top-banner-icon{font-size:32px}'
+  +'.top-banner-body{flex:1}'
+  +'.top-banner-title{font-family:"Playfair Display",serif;font-size:18px;font-weight:600;color:#e8b531;margin-bottom:4px}'
+  +'.top-banner-sub{font-size:12px;color:rgba(255,255,255,0.7)}'
+  +'.top-banner-score{font-family:"Playfair Display",serif;font-size:40px;font-weight:700;color:#c9971c}'
+  +'.retain-notice{background:#e8f5ee;border:1px solid #3cb87a;border-radius:8px;padding:12px 18px;margin-bottom:24px;font-size:12px;color:#1a6b3c}'
+  +'</style>'
+  +'</head><body>'
+
+  // ── COVER PAGE ──
+  +'<div class="page cover">'
+  +'<div class="cover-top">'
+  +'<div class="cover-logo">'
+  +'<div class="logo-emblem">BV</div>'
+  +'<div class="logo-text">Direction de Développement<br>BVMAC — Bourse des Valeurs Mobilières<br>de l\'Afrique Centrale</div>'
+  +'</div>'
+  +'</div>'
+  +'<div class="cover-divider"></div>'
+  +'<div class="cover-body">'
+  +'<div class="cover-label">Rapport de sélection des candidats</div>'
+  +'<div class="cover-title">Analyse &amp; Classement<br>des Candidatures</div>'
+  +'<div class="cover-job">'+esc(job)+'</div>'
+  +'<div class="cover-meta">'
+  +'<div class="meta-item"><div class="meta-label">Date du rapport</div><div class="meta-value">'+date+'</div></div>'
+  +'<div class="meta-item"><div class="meta-label">Analyste</div><div class="meta-value">'+esc(STATE.currentUser||'Administrateur')+'</div></div>'
+  +'<div class="meta-item"><div class="meta-label">Poste analysé</div><div class="meta-value">'+esc(job)+'</div></div>'
+  +'<div class="meta-item"><div class="meta-label">Score moyen</div><div class="meta-value">'+avg+' / 20</div></div>'
+  +'</div>'
+  +'<div class="cover-stats">'
+  +'<div class="cs-item"><div class="cs-num" style="color:#c9971c">'+total+'</div><div class="cs-lbl">Candidats analysés</div></div>'
+  +'<div class="cs-item"><div class="cs-num" style="color:#3cb87a">'+retained+'</div><div class="cs-lbl">À retenir</div></div>'
+  +'<div class="cs-item"><div class="cs-num" style="color:#e8b531">'+consider+'</div><div class="cs-lbl">À considérer</div></div>'
+  +'<div class="cs-item"><div class="cs-num" style="color:#e05454">'+rejected+'</div><div class="cs-lbl">Non retenus</div></div>'
+  +'</div>'
+  +'</div>'
+  +'<div class="cover-footer">'
+  +'<div class="footer-brand">BVMAC · Direction du Développement · v5.0</div>'
+  +'<div class="footer-conf">Document confidentiel — Usage interne uniquement</div>'
+  +'</div>'
+  +'</div>'
+
+  // ── STATS PAGE ──
+  +'<div class="page content">'
+  +'<div class="section-title">📊 Synthèse statistique</div>'
+
+  // KPI row
+  +'<div class="kpi-grid">'
+  +'<div class="kpi-card kpi-total"><div class="kpi-num">'+total+'</div><div class="kpi-lbl">Total candidats</div></div>'
+  +'<div class="kpi-card kpi-retain"><div class="kpi-num">'+retained+'</div><div class="kpi-lbl">À retenir</div></div>'
+  +'<div class="kpi-card kpi-consider"><div class="kpi-num">'+consider+'</div><div class="kpi-lbl">À considérer</div></div>'
+  +'<div class="kpi-card kpi-reject"><div class="kpi-num">'+rejected+'</div><div class="kpi-lbl">Non retenus</div></div>'
+  +'</div>'
+
+  // Charts row
+  +'<div class="chart-row">'
+  // Score distribution
+  +'<div class="chart-box">'
+  +'<div class="chart-box-title">Distribution des scores</div>'
+  +['16-20','12-15','8-11','0-7'].map(function(k){
+    var n=dist[k]; var pct=total>0?Math.round(n/total*100):0;
+    var col=k==='16-20'?'#3cb87a':k==='12-15'?'#c9971c':k==='8-11'?'#e07c30':'#e05454';
+    return '<div class="dist-bar-row"><div class="dist-bar-label">'+k+'</div>'
+      +'<div class="dist-bar-wrap"><div class="dist-bar-fill" style="width:'+pct+'%;background:'+col+'">'+pct+'%</div></div>'
+      +'<div class="dist-bar-count">'+n+' cand.</div></div>';
+  }).join('')
+  +'</div>'
+  // Recommendation breakdown
+  +'<div class="chart-box">'
+  +'<div class="chart-box-title">Répartition des recommandations</div>'
+  +'<div class="rec-row"><div class="rec-dot" style="background:#3cb87a"></div><div class="rec-label">À retenir</div><div class="rec-pct">'+retained+' ('+Math.round(retained/total*100)+'%)</div></div>'
+  +'<div class="rec-row"><div class="rec-dot" style="background:#c9971c"></div><div class="rec-label">À considérer</div><div class="rec-pct">'+consider+' ('+Math.round(consider/total*100)+'%)</div></div>'
+  +'<div class="rec-row"><div class="rec-dot" style="background:#e05454"></div><div class="rec-label">Non retenus</div><div class="rec-pct">'+rejected+' ('+Math.round(rejected/total*100)+'%)</div></div>'
+  +'<div style="margin-top:20px;padding-top:16px;border-top:1px solid #ececec">'
+  +'<div style="font-size:11px;color:#888;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.1em">Score moyen global</div>'
+  +'<div style="font-family:\'Playfair Display\',serif;font-size:32px;font-weight:700;color:#0b1f3a">'+avg+'<span style="font-size:16px;color:#888;font-family:Inter,sans-serif"> / 20</span></div>'
+  +'</div>'
+  +'</div>'
+  +'</div>'
+
+  // Criteria averages table
+  +(criteria.length?'<div class="section-title" style="margin-top:8px">📋 Moyennes par critère</div>'
+  +'<div style="border:1px solid #e0e0e8;border-radius:10px;overflow:hidden;margin-bottom:24px">'
+  +'<table style="width:100%;border-collapse:collapse">'
+  +'<thead><tr style="background:#0b1f3a;color:#fff">'
+  +'<th style="padding:10px 14px;text-align:left;font-size:11px;font-weight:500;letter-spacing:0.06em">Critère</th>'
+  +'<th style="padding:10px 14px;text-align:center;font-size:11px;font-weight:500;letter-spacing:0.06em">Moy.</th>'
+  +'<th style="padding:10px 14px;text-align:left;font-size:11px;font-weight:500;letter-spacing:0.06em">Distribution</th>'
+  +'<th style="padding:10px 14px;text-align:center;font-size:11px;font-weight:500;letter-spacing:0.06em">Min</th>'
+  +'<th style="padding:10px 14px;text-align:center;font-size:11px;font-weight:500;letter-spacing:0.06em">Max</th>'
+  +'</tr></thead><tbody>'
+  +criteria.map(function(c,idx){
+    var vals=STATE.results.map(function(r){return parseFloat(r.criteriaScores&&r.criteriaScores[c])||0;});
+    var avg2=(vals.reduce(function(a,b){return a+b;},0)/vals.length).toFixed(2);
+    var mn=Math.min.apply(null,vals).toFixed(2);
+    var mx=Math.max.apply(null,vals).toFixed(2);
+    var col=parseFloat(avg2)>=15?'#1a6b3c':parseFloat(avg2)>=10?'#7a5c00':'#8b2020';
+    return '<tr style="background:'+(idx%2===0?'#fff':'#f8f8fc')+';border-bottom:1px solid #ececec">'
+      +'<td style="padding:10px 14px;font-weight:500;font-size:12px">'+esc(c)+'</td>'
+      +'<td style="padding:10px 14px;text-align:center;font-family:\'Playfair Display\',serif;font-size:16px;font-weight:700;color:'+col+'">'+avg2+'</td>'
+      +'<td style="padding:10px 14px;min-width:120px">'+scoreBar(parseFloat(avg2))+'</td>'
+      +'<td style="padding:10px 14px;text-align:center;font-size:12px;color:#888">'+mn+'</td>'
+      +'<td style="padding:10px 14px;text-align:center;font-size:12px;color:#888">'+mx+'</td>'
+      +'</tr>';
+  }).join('')
+  +'</tbody></table></div>':'')
+
+  // Top candidate banner
+  +(top?'<div class="top-banner">'
+  +'<div class="top-banner-icon">🏆</div>'
+  +'<div class="top-banner-body">'
+  +'<div class="top-banner-title">Meilleur candidat</div>'
+  +'<div class="top-banner-sub">'+esc(top.name||'—')+(top.currentPosition?' · '+esc(top.currentPosition):'')+(top.education?' · '+esc(top.education):'')+'</div>'
+  +'</div>'
+  +'<div class="top-banner-score">'+parseFloat(top.totalScore||0).toFixed(2)+'/20</div>'
+  +'</div>':'')
+
+  +(retainCount>0?'<div class="retain-notice">🎯 Objectif de sélection : <strong>'+retainCount+' candidat(s) à retenir</strong>. Les '+retainCount+' premiers du classement ci-dessous sont recommandés.</div>':'')
+  +'</div>'
+
+  // ── CANDIDATES PAGES ──
+  +'<div class="content">'
+  +'<div class="section-title">👤 Classement détaillé des candidats</div>'
+  +STATE.results.map(function(r,i){
+    var sc=parseFloat(r.totalScore)||0;
+    var scCol=scoreColor(sc);
+    var critItems=criteria.map(function(c){
+      var v=parseFloat(r.criteriaScores&&r.criteriaScores[c])||0;
+      var vc=scoreColor(v);
+      return '<div class="crit-item"><div class="crit-item-name">'+esc(c)+'</div>'
+        +'<div class="crit-item-score" style="color:'+vc+'">'+v.toFixed(2)+'<span style="font-size:10px;color:#888;font-weight:400">/20</span></div>'
+        +scoreBar(v)+'</div>';
+    }).join('');
+    var strs=(r.strengths||[]).map(function(s){return '<span class="tag-green">✓ '+esc(s)+'</span>';}).join('');
+    var wks=(r.weaknesses||[]).map(function(w){return '<span class="tag-red">⚠ '+esc(w)+'</span>';}).join('');
+    return '<div class="cand-card no-break">'
+      +'<div class="cand-header">'
+      +'<div class="cand-rank">#'+(i+1)+'</div>'
+      +'<div class="cand-info">'
+      +'<div class="cand-name">'+esc(r.name||'—')+'</div>'
+      +'<div class="cand-meta">'+esc(r.currentPosition||'')+(r.yearsExp?' · '+esc(r.yearsExp):'')+(r.education?' · '+esc(r.education):'')+'</div>'
+      +'<div style="margin-top:6px">'+badge(r.recommendation||'')+'</div>'
+      +'</div>'
+      +'<div class="cand-score-wrap">'
+      +'<div class="cand-score" style="color:'+scCol+'">'+sc.toFixed(2)+'</div>'
+      +'<div class="cand-score-sub">/ 20</div>'
+      +'</div>'
+      +'</div>'
+      +'<div class="cand-body">'
+      +(r.jobFit?'<div style="font-size:11px;color:#c9971c;font-weight:600;margin-bottom:10px">📎 Adéquation : '+esc(r.jobFit)+'</div>':'')
+      +(critItems?'<div class="cand-criteria">'+critItems+'</div>':'')
+      +(r.summary?'<div class="cand-summary">'+esc(r.summary)+'</div>':'')
+      +((strs||wks)?'<div class="tags-row">'+strs+wks+'</div>':'')
+      +(r.recommendationReason?'<div class="cand-justif">Justification : '+esc(r.recommendationReason)+'</div>':'')
+      +'</div>'
+      +'</div>';
+  }).join('')
+  +'</div>'
+  +'</body></html>';
+
+  var win=window.open('','_blank');
+  if(win){
+    win.document.write(html);
+    win.document.close();
+    setTimeout(function(){win.print();},800);
+  } else showToast('Autorisez les popups pour exporter.','error');
+}
+
+function downloadBlob(content,filename,type){
+  try{var blob=new Blob([content],{type:type});var url=URL.createObjectURL(blob);var a=document.createElement('a');a.href=url;a.download=filename;document.body.appendChild(a);a.click();setTimeout(function(){URL.revokeObjectURL(url);},1000);}catch(e){showToast('Erreur export.','error');}
+}
+function today(){return new Date().toISOString().slice(0,10);}
+
+// ══════════════════════════════════════════
+// UTILS
+// ══════════════════════════════════════════
+function showToast(msg,type){var c=document.getElementById('toast-container');if(!c)return;var t=document.createElement('div');t.className='toast '+(type||'');t.textContent=msg;c.appendChild(t);setTimeout(function(){t.remove();},4000);}
+function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+
+// ══════════════════════════════════════════
+// START
+// ══════════════════════════════════════════
+window.addEventListener('load', function(){
+  initApp();
+  var lp=document.getElementById('login-password');
+  if(lp) lp.addEventListener('keydown',function(e){if(e.key==='Enter')doLogin();});
+  document.querySelectorAll('.modal-overlay').forEach(function(m){
+    m.addEventListener('click',function(e){if(e.target===m)m.classList.remove('active');});
+  });
+});
+
+</script>
+</body>
+</html>
